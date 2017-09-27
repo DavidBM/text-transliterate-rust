@@ -248,6 +248,7 @@ pub struct __locale_struct {
     pub __names: [*const ::std::os::raw::c_char; 13usize],
 }
 #[test]
+#[allow(non_snake_case)]
 fn bindgen_test_layout___locale_struct() {
     assert_eq!(::std::mem::size_of::<__locale_struct>() , 232usize , concat !
                ( "Size of: " , stringify ! ( __locale_struct ) ));
@@ -282,7 +283,9 @@ fn bindgen_test_layout___locale_struct() {
 impl Clone for __locale_struct {
     fn clone(&self) -> Self { *self }
 }
+#[allow(non_camel_case_types)]
 pub type __locale_t = *mut __locale_struct;
+#[allow(non_camel_case_types)]
 pub type locale_t = __locale_t;
 extern "C" {
     pub fn newlocale(__category_mask: ::std::os::raw::c_int,
