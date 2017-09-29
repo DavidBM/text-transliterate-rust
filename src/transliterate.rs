@@ -40,7 +40,7 @@ impl TextTransliterate {
 		};
 	}
 
-	pub fn transliterate<S: Into<String>, T: Into<String>>(&self, text: S, locale: T) -> Result<String, &'static str> {
+	pub fn transliterate<S: Into<String>>(&self, text: S, locale: S) -> Result<String, &'static str> {
 		let old_locale = self.set_thread_locale(locale);
 
 		if let Ok(old_locale) = old_locale {

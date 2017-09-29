@@ -33,7 +33,7 @@ impl TransliterateAsync {
 		TransliterateAsync {sender: sender}
 	}
 
-	pub fn transliterate<S: Into<String>, T: Into<String>>(&self, text: S, locale: T) -> Result<String, &'static str> {
+	pub fn transliterate<S: Into<String>>(&self, text: S, locale: S) -> Result<String, &'static str> {
 		let (sender, receiver): (Sender<Result<String, &'static str>>, Receiver<Result<String, &'static str>>) = mpsc::channel();
 
 		self.sender.send(TransliterationRequest {
