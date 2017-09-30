@@ -45,35 +45,62 @@ pub const __LC_ADDRESS: ::std::os::raw::c_uint = 9;
 pub const __LC_TELEPHONE: ::std::os::raw::c_uint = 10;
 pub const __LC_MEASUREMENT: ::std::os::raw::c_uint = 11;
 pub const __LC_IDENTIFICATION: ::std::os::raw::c_uint = 12;
+#[allow(dead_code)]
 pub const LC_CTYPE: ::std::os::raw::c_uint = 0;
+#[allow(dead_code)]
 pub const LC_NUMERIC: ::std::os::raw::c_uint = 1;
+#[allow(dead_code)]
 pub const LC_TIME: ::std::os::raw::c_uint = 2;
+#[allow(dead_code)]
 pub const LC_COLLATE: ::std::os::raw::c_uint = 3;
+#[allow(dead_code)]
 pub const LC_MONETARY: ::std::os::raw::c_uint = 4;
+#[allow(dead_code)]
 pub const LC_MESSAGES: ::std::os::raw::c_uint = 5;
+#[allow(dead_code)]
 pub const LC_ALL: ::std::os::raw::c_uint = 6;
+#[allow(dead_code)]
 pub const LC_PAPER: ::std::os::raw::c_uint = 7;
+#[allow(dead_code)]
 pub const LC_NAME: ::std::os::raw::c_uint = 8;
+#[allow(dead_code)]
 pub const LC_ADDRESS: ::std::os::raw::c_uint = 9;
+#[allow(dead_code)]
 pub const LC_TELEPHONE: ::std::os::raw::c_uint = 10;
+#[allow(dead_code)]
 pub const LC_MEASUREMENT: ::std::os::raw::c_uint = 11;
+#[allow(dead_code)]
 pub const LC_IDENTIFICATION: ::std::os::raw::c_uint = 12;
 pub const _XLOCALE_H: ::std::os::raw::c_uint = 1;
+#[allow(dead_code)]
 pub const LC_CTYPE_MASK: ::std::os::raw::c_uint = 1;
+#[allow(dead_code)]
 pub const LC_NUMERIC_MASK: ::std::os::raw::c_uint = 2;
+#[allow(dead_code)]
 pub const LC_TIME_MASK: ::std::os::raw::c_uint = 4;
+#[allow(dead_code)]
 pub const LC_COLLATE_MASK: ::std::os::raw::c_uint = 8;
+#[allow(dead_code)]
 pub const LC_MONETARY_MASK: ::std::os::raw::c_uint = 16;
+#[allow(dead_code)]
 pub const LC_MESSAGES_MASK: ::std::os::raw::c_uint = 32;
+#[allow(dead_code)]
 pub const LC_PAPER_MASK: ::std::os::raw::c_uint = 128;
+#[allow(dead_code)]
 pub const LC_NAME_MASK: ::std::os::raw::c_uint = 256;
+#[allow(dead_code)]
 pub const LC_ADDRESS_MASK: ::std::os::raw::c_uint = 512;
+#[allow(dead_code)]
 pub const LC_TELEPHONE_MASK: ::std::os::raw::c_uint = 1024;
+#[allow(dead_code)]
 pub const LC_MEASUREMENT_MASK: ::std::os::raw::c_uint = 2048;
+#[allow(dead_code)]
 pub const LC_IDENTIFICATION_MASK: ::std::os::raw::c_uint = 4096;
+#[allow(dead_code)]
 pub const LC_ALL_MASK: ::std::os::raw::c_uint = 8127;
 #[repr(C)]
 #[derive(Debug, Copy)]
+#[allow(dead_code)]
 pub struct lconv {
     pub decimal_point: *mut ::std::os::raw::c_char,
     pub thousands_sep: *mut ::std::os::raw::c_char,
@@ -231,11 +258,13 @@ impl Clone for lconv {
     fn clone(&self) -> Self { *self }
 }
 extern "C" {
+    #[allow(dead_code)]
     pub fn setlocale(__category: ::std::os::raw::c_int,
                      __locale: *const ::std::os::raw::c_char)
      -> *mut ::std::os::raw::c_char;
 }
 extern "C" {
+    #[allow(dead_code)]
     pub fn localeconv() -> *mut lconv;
 }
 #[repr(C)]
@@ -286,6 +315,7 @@ impl Clone for __locale_struct {
 #[allow(non_camel_case_types)]
 pub type __locale_t = *mut __locale_struct;
 #[allow(non_camel_case_types)]
+#[allow(dead_code)]
 pub type locale_t = __locale_t;
 extern "C" {
     pub fn newlocale(__category_mask: ::std::os::raw::c_int,
@@ -293,12 +323,15 @@ extern "C" {
                      __base: __locale_t) -> __locale_t;
 }
 extern "C" {
+    #[allow(dead_code)]
     pub fn duplocale(__dataset: __locale_t) -> __locale_t;
 }
 extern "C" {
+    #[allow(dead_code)]
     pub fn freelocale(__dataset: __locale_t);
 }
 extern "C" {
+    #[allow(dead_code)]
     pub fn uselocale(__dataset: __locale_t) -> __locale_t;
 }
 #[repr(C)]

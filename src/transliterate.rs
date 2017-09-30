@@ -13,7 +13,6 @@ impl TextTransliterate {
 	}
 
 	fn set_thread_locale<S: Into<String>>(&self, locale: S) -> Result<*mut __locale_struct, &'static str> {
-
 		
 		if let Ok(locale) = CString::new(locale.into()) {
 

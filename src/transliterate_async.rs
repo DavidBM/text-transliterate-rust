@@ -18,19 +18,19 @@ struct TransliterationRequest {
 }
 
 #[derive(Debug)]
-struct TransliterateAsync {
+pub struct TextTransliterateAsync {
 	sender: Sender<TransliterationRequest>
 }
 
-impl TransliterateAsync {
-	pub fn new() -> TransliterateAsync {
+impl TextTransliterateAsync {
+	pub fn new() -> TextTransliterateAsync {
 		let (sender, receiver): (Sender<TransliterationRequest>, Receiver<TransliterationRequest>) = mpsc::channel();
 
 		let text_transliterate = TextTransliterate::new();
 
-		TransliterateAsync::create_thread(receiver, text_transliterate);
+		TextTransliterateAsync::create_thread(receiver, text_transliterate);
 
-		TransliterateAsync {sender: sender}
+		TextTransliterateAsync {sender: sender}
 	}
 
 	pub fn transliterate<S: Into<String>>(&self, text: S, locale: S) -> Result<String, &'static str> {
@@ -71,7 +71,7 @@ mod tests {
 
 	#[test]
 	fn it_works() {
-		let tt = TransliterateAsync::new();
+		let tt = TextTransliterateAsync::new();
 		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
