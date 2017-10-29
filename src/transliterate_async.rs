@@ -44,16 +44,18 @@ impl TextTransliterateAsync {
 				match request {
 					TransliterateRequest::Die => return,
 					TransliterateRequest::Transliterate(request) => {
-						if let Ok(result) = tt.transliterate(request.text, request.locale){
-							request.sender.send(Ok(result)).unwrap();
+						match tt.transliterate(request.text, request.locale) {
+						    Ok(result) => request.sender.send(Ok(result)).unwrap(),
+						    Err(error) => request.sender.send(Err(error)).unwrap(),
 						}
-					},
+					}
 				}
 			}
 		});
 	}
 
  	fn regenerate_transliterator(&mut self) {
+ 		let _ = self.sender.send(TransliterateRequest::Die);
 		let sender = TextTransliterateAsync::generate_transliterator();
 		self.sender = sender;
 	}
@@ -89,8 +91,7 @@ impl TextTransliterateAsync {
 
 impl Drop for TextTransliterateAsync {
 	fn drop(&mut self) {
-		#[allow(unused_variables)]
-		let send_result = self.sender.send(TransliterateRequest::Die);
+		let _ = self.sender.send(TransliterateRequest::Die);
 	}
 }
 
