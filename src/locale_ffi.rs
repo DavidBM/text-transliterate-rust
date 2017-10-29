@@ -97,7 +97,7 @@ pub const LC_MEASUREMENT_MASK: ::std::os::raw::c_uint = 2048;
 #[allow(dead_code)]
 pub const LC_IDENTIFICATION_MASK: ::std::os::raw::c_uint = 4096;
 #[allow(dead_code)]
-pub const LC_ALL_MASK: ::std::os::raw::c_uint = 8127;
+pub const LC_ALL_MASK: ::std::os::raw::c_int = 8127;
 #[repr(C)]
 #[derive(Debug, Copy)]
 #[allow(dead_code)]

@@ -1,7 +1,6 @@
-use locale_ffi::{uselocale, newlocale, __locale_struct};
+use locale_ffi::{uselocale, freelocale, newlocale, __locale_struct, LC_ALL_MASK};
 use std::ptr;
 use std::ffi::CString;
-use libc::{LC_ALL_MASK, free, c_void};
 use iconv::{Iconv};
 
 #[derive(Debug)]
@@ -12,51 +11,50 @@ impl TextTransliterate {
 		TextTransliterate {}
 	}
 
-	fn set_thread_locale<S: Into<String>>(&self, locale: S) -> Result<*mut __locale_struct, &'static str> {
+	fn set_thread_locale<S: Into<String>>(&self, locale: S) -> Result<(), &'static str> {
 		
-		if let Ok(locale) = CString::new(locale.into()) {
+		let locale = locale.into();
+
+		if let Ok(locale) = CString::new(locale) {
 
 			let locale = locale.as_ptr();
 
 			let null: *mut __locale_struct = ptr::null_mut();
 			
-			let old_locale = unsafe { 
+			unsafe { 
 				let locale = newlocale(LC_ALL_MASK, locale, null);
-				uselocale(locale)
+				let old_locale = uselocale(locale);
+
+				//uselocale returns in some systems 0xffffffffffffffff instead of locale_t 0.
+				//I'm starting to think that I should parse the locale transliteration files in rust...
+				if !old_locale.is_null() && old_locale != 0xffffffffffffffff as *mut __locale_struct {
+					freelocale(old_locale)
+				}
 			};
 
-			Ok(old_locale)
-
+			Ok(())
 		} else {
 			Err("Not able to decode locale text")
 		}
 	}
 
-	fn restore_thread_locale(&self, old_locale: *mut __locale_struct) {
-		unsafe { 
-			let old_locale = uselocale(old_locale);
-			free(old_locale as *mut c_void)
-		};
-	}
-
 	pub fn transliterate<S: Into<String>>(&self, text: S, locale: S) -> Result<String, &'static str> {
-		let old_locale = self.set_thread_locale(locale);
-
-		if let Ok(old_locale) = old_locale {
+		let text = text.into();
+		let locale = locale.into();
+				
+		if let Ok(_) = self.set_thread_locale(locale) {
 			
 			let iconv = Iconv::new("ascii//TRANSLIT//IGNORE", "utf-8");
 
 			if let Ok(mut iconv) = iconv {
 				
 				let mut buf = Vec::new();
-				let result = iconv.convert(&text.into().as_bytes(), &mut buf, 0);
+				let result = iconv.convert(&text.as_bytes(), &mut buf, 0);
 
 				if let Err(_) = result {
 					return Err("Error in transliteration");
 				}
 				let output_utf8 = String::from_utf8(buf);
-
-				self.restore_thread_locale(old_locale);
 
 				if let Ok(output) = output_utf8 {
 					Ok(output)

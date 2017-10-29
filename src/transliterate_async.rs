@@ -45,8 +45,8 @@ impl TextTransliterateAsync {
 					TransliterateRequest::Die => break,
 					TransliterateRequest::Transliterate(request) => {
 						match tt.transliterate(request.text, request.locale) {
-						    Ok(result) => request.sender.send(Ok(result)).unwrap(),
-						    Err(error) => request.sender.send(Err(error)).unwrap(),
+							Ok(result) => request.sender.send(Ok(result)).unwrap(),
+							Err(error) => request.sender.send(Err(error)).unwrap(),
 						}
 					}
 				}
@@ -101,7 +101,7 @@ mod tests {
 
 	#[test]
 	fn it_works() {
-		let tt = TextTransliterateAsync::new();
+		let mut tt = TextTransliterateAsync::new();
 		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
@@ -112,7 +112,7 @@ mod tests {
 
 	#[test]
 	fn japanse_dont_crash() {
-		let tt = TextTransliterateAsync::new();
+		let mut tt = TextTransliterateAsync::new();
 		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
@@ -123,7 +123,7 @@ mod tests {
 
 	#[test]
 	fn chinese_dont_crash() {
-		let tt = TextTransliterateAsync::new();
+		let mut tt = TextTransliterateAsync::new();
 		let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("?????????", result);
@@ -134,7 +134,7 @@ mod tests {
 
 	#[test]
 	fn coins() {
-		let tt = TextTransliterateAsync::new();
+		let mut tt = TextTransliterateAsync::new();
 		let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("EUR GBP $ JPY", result);

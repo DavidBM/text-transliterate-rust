@@ -10,6 +10,8 @@ use std::error::Error;
 use std::mem::transmute;
 use libc::size_t;
 use libc;
+#[allow(unused_imports)]
+use env_logger;
 
 #[link(name="iconv")]
 pub mod raw {
@@ -321,35 +323,4 @@ fn test_convert_raw_turn() {
     let _ = iconv_rev.convert(&mut dst, &mut dst2, 0);
     let s_recoverd = String::from_utf8(dst2).unwrap();
     assert_eq!("あいうえお".to_string(), s_recoverd);
-}
-
-#[test]
-fn test_convert(text: &[u8], encoding: &str) -> String {
-    let mut buffer = Vec::new();
-    let mut iconv = Iconv::new("utf-8", encoding).unwrap();
-    if let Ok(_) = iconv.convert(text, &mut buffer, 0) {
-        let ret = String::from_utf8(buffer).unwrap();
-        return ret;
-    } else {
-        panic!("Hey, you're wrong");
-    }
-}
-
-#[test]
-fn test_hsp() {
-    use std::fs::File;
-    use std::io::{Read, Write};
-    let file_path = "/home/kohei/programming/rust/projects/hsp_parser/start.hsp";
-    let mut file = File::open(file_path).unwrap();
-    let mut input = Vec::new();
-    if let Ok(_) = file.read_to_end(&mut input) {
-    } else {
-        panic!("File not found: {}", file_path);
-    }
-    let converted = test_convert(&input, "cp932");
-    let mut to_write = File::create("start_utf8.hsp").unwrap();
-    if let Ok(_) = to_write.write_all(converted.as_bytes()) {
-    } else {
-        unreachable!();
-    }
 }
