@@ -4,44 +4,76 @@ use std::sync::mpsc;
 use std::thread;
 
 #[derive(Debug)]
-enum TransliterateRequestAction {
+enum TransliterateRequest {
 	Die,
-	Transliterate
+	Transliterate(TransliterationData)
 }
 
 #[derive(Debug)]
-struct TransliterationRequest {
+struct TransliterationData {
 	text: String,
 	sender: Sender<Result<String, &'static str>>,
-	locale: String,
-	action: TransliterateRequestAction
+	locale: String
 }
 
 #[derive(Debug)]
 pub struct TextTransliterateAsync {
-	sender: Sender<TransliterationRequest>
+	sender: Sender<TransliterateRequest>
 }
 
 impl TextTransliterateAsync {
 	pub fn new() -> TextTransliterateAsync {
-		let (sender, receiver): (Sender<TransliterationRequest>, Receiver<TransliterationRequest>) = mpsc::channel();
+		let sender = TextTransliterateAsync::generate_transliterator();
+
+		TextTransliterateAsync {sender: sender}
+	}
+
+	fn generate_transliterator() -> Sender<TransliterateRequest> {
+		let (sender, receiver): (Sender<TransliterateRequest>, Receiver<TransliterateRequest>) = mpsc::channel();
 
 		let text_transliterate = TextTransliterate::new();
 
 		TextTransliterateAsync::create_thread(receiver, text_transliterate);
 
-		TextTransliterateAsync {sender: sender}
+		sender
 	}
 
-	pub fn transliterate<S: Into<String>>(&self, text: S, locale: S) -> Result<String, &'static str> {
+	fn create_thread(receiver: Receiver<TransliterateRequest>, tt: TextTransliterate) {
+		thread::spawn(move || {
+			while let Ok(request) = receiver.recv() {
+				match request {
+					TransliterateRequest::Die => return,
+					TransliterateRequest::Transliterate(request) => {
+						if let Ok(result) = tt.transliterate(request.text, request.locale){
+							request.sender.send(Ok(result)).unwrap();
+						}
+					},
+				}
+			}
+		});
+	}
+
+ 	fn regenerate_transliterator(&mut self) {
+		let sender = TextTransliterateAsync::generate_transliterator();
+		self.sender = sender;
+	}
+
+	pub fn transliterate<S: Into<String>>(&mut self, text: S, locale: S) -> Result<String, &'static str> {
 		let (sender, receiver): (Sender<Result<String, &'static str>>, Receiver<Result<String, &'static str>>) = mpsc::channel();
 
-		self.sender.send(TransliterationRequest {
-			text: text.into(),
+		let text = text.into();
+		let locale = locale.into();
+
+		let send_result = self.sender.send(TransliterateRequest::Transliterate( TransliterationData {
+			text: text.clone(),
 			sender: sender,
-			locale: locale.into(),
-			action: TransliterateRequestAction::Transliterate
-		});
+			locale: locale.clone()
+		}));
+
+		if let Err(_) = send_result {
+			self.regenerate_transliterator();
+			return self.transliterate(text, locale);
+		}
 
 		if let Ok(result) = receiver.recv() {
 			match result {
@@ -49,19 +81,16 @@ impl TextTransliterateAsync {
 				Err(message) => Err(message),
 			}
 		} else {
-			Err("Error communicating with the thread")
+			self.regenerate_transliterator();
+			Err("Error communicating with the thread. Regenerating thread")
 		}
-
 	}
+}
 
-	fn create_thread(receiver: Receiver<TransliterationRequest>, tt: TextTransliterate) {
-		thread::spawn(move || {
-			while let Ok(request) = receiver.recv() {
-				if let Ok(result) = tt.transliterate(request.text, request.locale){
-					request.sender.send(Ok(result)).unwrap();
-				}
-			}
-		});
+impl Drop for TextTransliterateAsync {
+	fn drop(&mut self) {
+		#[allow(unused_variables)]
+		let send_result = self.sender.send(TransliterateRequest::Die);
 	}
 }
 
@@ -75,6 +104,39 @@ mod tests {
 		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
 		if let Ok(result) = result {
 			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
+		} else {
+			assert!(false);
+		}
+	}
+
+	#[test]
+	fn japanse_dont_crash() {
+		let tt = TextTransliterateAsync::new();
+		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
+		if let Ok(result) = result {
+			assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
+		} else {
+			assert!(false);
+		}
+	}
+
+	#[test]
+	fn chinese_dont_crash() {
+		let tt = TextTransliterateAsync::new();
+		let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
+		if let Ok(result) = result {
+			assert_eq!("?????????", result);
+		} else {
+			assert!(false);
+		}
+	}
+
+	#[test]
+	fn coins() {
+		let tt = TextTransliterateAsync::new();
+		let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
+		if let Ok(result) = result {
+			assert_eq!("EUR GBP $ JPY", result);
 		} else {
 			assert!(false);
 		}
