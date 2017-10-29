@@ -42,7 +42,7 @@ impl TextTransliterateAsync {
 		thread::spawn(move || {
 			while let Ok(request) = receiver.recv() {
 				match request {
-					TransliterateRequest::Die => return,
+					TransliterateRequest::Die => break,
 					TransliterateRequest::Transliterate(request) => {
 						match tt.transliterate(request.text, request.locale) {
 						    Ok(result) => request.sender.send(Ok(result)).unwrap(),
