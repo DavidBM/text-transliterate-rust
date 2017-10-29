@@ -9,4 +9,6 @@ authors = ["David Bonet <webbonet@gmail.com>"]
 
 [dependencies]
 libc = "0.2"
-iconv = { git = 'https://github.com/y-stm/rust-iconv' }
+errno = "*"
+log = "*"
+env_logger = "*"
