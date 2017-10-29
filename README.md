@@ -33,3 +33,7 @@ For using the correct locale (for example, to transliterate german letter correc
 ```
 
 Note: The test results can change between machines. Keep in mind that.
+
+### License
+
+Apache-2.0/MIT
