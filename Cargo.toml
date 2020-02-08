@@ -2,7 +2,7 @@
 name = "text-transliterate"
 description = "simple utility for transliterate texts using the SO iconv from POSIX"
 license = "Apache-2.0/MIT"
-repository = "git@github.com:DavidBM/text-transliterate-rust.git"
+repository = "https://github.com/DavidBM/text-transliterate-rust"
 homepage = "https://github.com/DavidBM/text-transliterate-rust"
 version = "1.0.0"
 authors = ["David Bonet <webbonet@gmail.com>"]
