@@ -1,9 +1,10 @@
-use locale_ffi::{uselocale, freelocale, newlocale, __locale_struct, LC_ALL_MASK};
+use crate::locale_ffi::{uselocale, freelocale, newlocale, __locale_struct, LC_ALL_MASK};
 use std::ptr;
 use std::ffi::CString;
-use iconv::{Iconv};
+use crate::iconv::{Iconv};
 
 #[derive(Debug)]
+#[derive(Default)]
 pub struct TextTransliterate;
 
 impl TextTransliterate {
@@ -27,7 +28,7 @@ impl TextTransliterate {
 
 				//uselocale returns in some systems 0xffffffffffffffff instead of locale_t 0.
 				//I'm starting to think that I should parse the locale transliteration files in rust...
-				if !old_locale.is_null() && old_locale != 0xffffffffffffffff as *mut __locale_struct {
+				if !old_locale.is_null() && old_locale != 0xffff_ffff_ffff_ffff as *mut __locale_struct {
 					freelocale(old_locale)
 				}
 			};
@@ -42,7 +43,7 @@ impl TextTransliterate {
 		let text = text.into();
 		let locale = locale.into();
 				
-		if let Ok(_) = self.set_thread_locale(locale) {
+		if self.set_thread_locale(locale).is_ok() {
 			
 			let iconv = Iconv::new("ascii//TRANSLIT//IGNORE", "utf-8");
 
@@ -51,7 +52,7 @@ impl TextTransliterate {
 				let mut buf = Vec::new();
 				let result = iconv.convert(&text.as_bytes(), &mut buf, 0);
 
-				if let Err(_) = result {
+				if result.is_err() {
 					return Err("Error in transliteration");
 				}
 				let output_utf8 = String::from_utf8(buf);
@@ -82,7 +83,7 @@ mod tests {
 		if let Ok(result) = result {
 			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
 		} else {
-			assert!(false);
+			unreachable!()
 		}
 	}
 }

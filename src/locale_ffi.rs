@@ -8,7 +8,7 @@ pub const __USE_ISOC99: ::std::os::raw::c_uint = 1;
 pub const __USE_ISOC95: ::std::os::raw::c_uint = 1;
 pub const __USE_POSIX_IMPLICITLY: ::std::os::raw::c_uint = 1;
 pub const _POSIX_SOURCE: ::std::os::raw::c_uint = 1;
-pub const _POSIX_C_SOURCE: ::std::os::raw::c_uint = 200809;
+pub const _POSIX_C_SOURCE: ::std::os::raw::c_uint = 200_809;
 pub const __USE_POSIX: ::std::os::raw::c_uint = 1;
 pub const __USE_POSIX2: ::std::os::raw::c_uint = 1;
 pub const __USE_POSIX199309: ::std::os::raw::c_uint = 1;
@@ -22,7 +22,7 @@ pub const __USE_FORTIFY_LEVEL: ::std::os::raw::c_uint = 0;
 pub const _STDC_PREDEF_H: ::std::os::raw::c_uint = 1;
 pub const __STDC_IEC_559__: ::std::os::raw::c_uint = 1;
 pub const __STDC_IEC_559_COMPLEX__: ::std::os::raw::c_uint = 1;
-pub const __STDC_ISO_10646__: ::std::os::raw::c_uint = 201605;
+pub const __STDC_ISO_10646__: ::std::os::raw::c_uint = 201_605;
 pub const __STDC_NO_THREADS__: ::std::os::raw::c_uint = 1;
 pub const __GNU_LIBRARY__: ::std::os::raw::c_uint = 6;
 pub const __GLIBC__: ::std::os::raw::c_uint = 2;
@@ -134,122 +134,122 @@ fn bindgen_test_layout_lconv() {
     assert_eq! (::std::mem::align_of::<lconv>() , 8usize , concat ! (
                 "Alignment of " , stringify ! ( lconv ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . decimal_point as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . decimal_point as * const _ as
                 usize } , 0usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( decimal_point ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . thousands_sep as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . thousands_sep as * const _ as
                 usize } , 8usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( thousands_sep ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . grouping as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . grouping as * const _ as
                 usize } , 16usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( grouping ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_curr_symbol as * const _
+                & ( * std::ptr::null::<lconv>() ) . int_curr_symbol as * const _
                 as usize } , 24usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_curr_symbol ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . currency_symbol as * const _
+                & ( * std::ptr::null::<lconv>() ) . currency_symbol as * const _
                 as usize } , 32usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( currency_symbol ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . mon_decimal_point as * const
+                & ( * std::ptr::null::<lconv>() ) . mon_decimal_point as * const
                 _ as usize } , 40usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( mon_decimal_point ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . mon_thousands_sep as * const
+                & ( * std::ptr::null::<lconv>() ) . mon_thousands_sep as * const
                 _ as usize } , 48usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( mon_thousands_sep ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . mon_grouping as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . mon_grouping as * const _ as
                 usize } , 56usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( mon_grouping ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . positive_sign as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . positive_sign as * const _ as
                 usize } , 64usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( positive_sign ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . negative_sign as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . negative_sign as * const _ as
                 usize } , 72usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( negative_sign ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_frac_digits as * const _
+                & ( * std::ptr::null::<lconv>() ) . int_frac_digits as * const _
                 as usize } , 80usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_frac_digits ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . frac_digits as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . frac_digits as * const _ as
                 usize } , 81usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( frac_digits ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . p_cs_precedes as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . p_cs_precedes as * const _ as
                 usize } , 82usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( p_cs_precedes ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . p_sep_by_space as * const _
+                & ( * std::ptr::null::<lconv>() ) . p_sep_by_space as * const _
                 as usize } , 83usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( p_sep_by_space ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . n_cs_precedes as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . n_cs_precedes as * const _ as
                 usize } , 84usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( n_cs_precedes ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . n_sep_by_space as * const _
+                & ( * std::ptr::null::<lconv>() ) . n_sep_by_space as * const _
                 as usize } , 85usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( n_sep_by_space ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . p_sign_posn as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . p_sign_posn as * const _ as
                 usize } , 86usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( p_sign_posn ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . n_sign_posn as * const _ as
+                & ( * std::ptr::null::<lconv>() ) . n_sign_posn as * const _ as
                 usize } , 87usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( n_sign_posn ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_p_cs_precedes as * const
+                & ( * std::ptr::null::<lconv>() ) . int_p_cs_precedes as * const
                 _ as usize } , 88usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_p_cs_precedes ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_p_sep_by_space as * const
+                & ( * std::ptr::null::<lconv>() ) . int_p_sep_by_space as * const
                 _ as usize } , 89usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_p_sep_by_space ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_n_cs_precedes as * const
+                & ( * std::ptr::null::<lconv>() ) . int_n_cs_precedes as * const
                 _ as usize } , 90usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_n_cs_precedes ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_n_sep_by_space as * const
+                & ( * std::ptr::null::<lconv>() ) . int_n_sep_by_space as * const
                 _ as usize } , 91usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_n_sep_by_space ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_p_sign_posn as * const _
+                & ( * std::ptr::null::<lconv>() ) . int_p_sign_posn as * const _
                 as usize } , 92usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_p_sign_posn ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const lconv ) ) . int_n_sign_posn as * const _
+                & ( * std::ptr::null::<lconv>() ) . int_n_sign_posn as * const _
                 as usize } , 93usize , concat ! (
                 "Alignment of field: " , stringify ! ( lconv ) , "::" ,
                 stringify ! ( int_n_sign_posn ) ));
@@ -284,27 +284,27 @@ fn bindgen_test_layout___locale_struct() {
     assert_eq! (::std::mem::align_of::<__locale_struct>() , 8usize , concat !
                 ( "Alignment of " , stringify ! ( __locale_struct ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const __locale_struct ) ) . __locales as *
+                & ( * std::ptr::null::<__locale_struct>() ) . __locales as *
                 const _ as usize } , 0usize , concat ! (
                 "Alignment of field: " , stringify ! ( __locale_struct ) ,
                 "::" , stringify ! ( __locales ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const __locale_struct ) ) . __ctype_b as *
+                & ( * std::ptr::null::<__locale_struct>() ) . __ctype_b as *
                 const _ as usize } , 104usize , concat ! (
                 "Alignment of field: " , stringify ! ( __locale_struct ) ,
                 "::" , stringify ! ( __ctype_b ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const __locale_struct ) ) . __ctype_tolower as
+                & ( * std::ptr::null::<__locale_struct>() ) . __ctype_tolower as
                 * const _ as usize } , 112usize , concat ! (
                 "Alignment of field: " , stringify ! ( __locale_struct ) ,
                 "::" , stringify ! ( __ctype_tolower ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const __locale_struct ) ) . __ctype_toupper as
+                & ( * std::ptr::null::<__locale_struct>() ) . __ctype_toupper as
                 * const _ as usize } , 120usize , concat ! (
                 "Alignment of field: " , stringify ! ( __locale_struct ) ,
                 "::" , stringify ! ( __ctype_toupper ) ));
     assert_eq! (unsafe {
-                & ( * ( 0 as * const __locale_struct ) ) . __names as * const
+                & ( * std::ptr::null::<__locale_struct>() ) . __names as * const
                 _ as usize } , 128usize , concat ! (
                 "Alignment of field: " , stringify ! ( __locale_struct ) ,
                 "::" , stringify ! ( __names ) ));

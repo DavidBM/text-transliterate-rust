@@ -3,15 +3,12 @@ code inspired from: git@github.com:y-stm/rust-iconv.git
 */
 use std::borrow::Cow;
 use errno::{Errno, errno};
-use std;
 use std::ffi::CString;
+use log::info;
 use std::fmt::{Display, Formatter};
 use std::error::Error;
-use std::mem::transmute;
 use libc::size_t;
 use libc;
-#[allow(unused_imports)]
-use env_logger;
 
 #[link(name="iconv")]
 pub mod raw {
@@ -24,11 +21,9 @@ pub mod raw {
     /// `iconv_open(3)` returns (iconv_t)-1 when failed to create new iconv object.
     /// In rust we should use `std::mem::transmute` to check the return value.
     #[inline]
-    pub fn is_iconv_t_valid(cd: &iconv_t) -> bool {
-        unsafe {
-            let err = ::std::mem::transmute::<isize, iconv_t>(-1);
-            return cd != &err;
-        }
+    pub fn is_iconv_t_valid(cd: iconv_t) -> bool {
+        let err = -1 as isize as *mut core::ffi::c_void;
+        cd != err
     }
 
     /// Check wheter iconv conversion is successfully done.
@@ -36,18 +31,18 @@ pub mod raw {
     /// `iconv(3)` returns (size_t)-1 when conversion failed.
     /// In rust we should use unsafe `std::mem::transmute` to check the return value.
     #[inline]
-    pub fn is_iconv_valid(v: &size_t) -> bool {
+    pub fn is_iconv_valid(v: size_t) -> bool {
         unsafe {
             let err = ::std::mem::transmute::<isize, size_t>(-1);
-            return v != &err;
+            v != err
         }
     }
 
     extern {
         pub fn iconv(cd: iconv_t,
-                     inbuf: *const (*const u8),
+                     inbuf: *const *const u8,
                      inbytesleft: *mut size_t,
-                     outbuf: *mut (*mut u8),
+                     outbuf: *mut *mut u8,
                      outbytesleft: *mut size_t)
                      -> size_t;
         pub fn iconv_open(tocode: *const c_char, fromcode: *const c_char) -> iconv_t;
@@ -86,33 +81,33 @@ impl IconvError {
     /// This is used in `(IconvError as Display)::fmt`
     pub fn to_str(&self) -> String {
         use self::IconvError::*;
-        match self {
-            &OnFindingConversion(ref e) => {
+        match *self {
+            OnFindingConversion(ref e) => {
                 format!("C function `iconv_open` failed: {}", e)
             }
-            &OnCStringConversion(ref e) => {
+            OnCStringConversion(ref e) => {
                 format!("CString::new failed: {}", e)
             }
-            &OnConversion(ref cow_str) => {
+            OnConversion(ref cow_str) => {
                 cow_str.to_owned().to_string()
             }
-            &InsufficientOutBuffer(ref left_to_convert, ref wrote_bytes) => {
+            InsufficientOutBuffer(ref left_to_convert, ref wrote_bytes) => {
                 format!("Need more room in dst buffer. {} bytes remain. {} bytes written",
                         left_to_convert,
                         wrote_bytes)
             }
-            &InsufficientInBuffer(ref remain_index, ref wrote_index) => {
+            InsufficientInBuffer(ref remain_index, ref wrote_index) => {
                 format!("Need more input to complete conversion. {} bytes remain, {} bytes written",
                         remain_index,
                         wrote_index)
             }
-            &InvalidSequence(ref remain_index, ref wrote_index) => {
+            InvalidSequence(ref remain_index, ref wrote_index) => {
                 format!("Source text has invalid multibyte charactor sequence at {}. {} bytes \
                          written",
                         remain_index,
                         wrote_index)
             }
-            &OnClose(ref e) => {
+            OnClose(ref e) => {
                 format!("C function `iconv_close` failed: {}", e)
             }
         }
@@ -138,17 +133,17 @@ pub struct Iconv {
 impl Iconv {
     pub fn new(tocode: &str, fromcode: &str) -> Result<Iconv, IconvError> {
         let to_iconv_err = |null_err| {
-            return Err(IconvError::OnCStringConversion(null_err));
+            Err(IconvError::OnCStringConversion(null_err))
         };
-        let tocode_c = try!(CString::new(tocode).or_else(&to_iconv_err));
-        let fromcode_c = try!(CString::new(fromcode).or_else(&to_iconv_err));
+        let tocode_c = CString::new(tocode).or_else(&to_iconv_err)?;
+        let fromcode_c = CString::new(fromcode).or_else(&to_iconv_err)?;
         unsafe {
 
             let cd = raw::iconv_open(tocode_c.into_raw(), fromcode_c.into_raw());
-            if !raw::is_iconv_t_valid(&cd) {
+            if !raw::is_iconv_t_valid(cd) {
                 return Err(IconvError::OnFindingConversion(errno()));
             }
-            return Ok(Iconv { iconv: cd });
+            Ok(Iconv { iconv: cd })
         }
     }
 
@@ -171,8 +166,8 @@ impl Iconv {
         unsafe {
             let inbytes_left = &mut inbytes_left as *mut size_t;
             let outbytes_left = &mut outbytes_left as *mut size_t;
-            let unsafe_src = transmute::<&&[u8], *const (*const u8)>(&src);
-            let unsafe_dst = transmute::<&mut &mut [u8], *mut (*mut u8)>(&mut dst);
+            let unsafe_src = &src as *const &[u8] as *const *const u8;
+            let unsafe_dst = &mut dst as *mut &mut [u8] as *mut *mut u8;
             let res = raw::iconv(self.iconv,
                                  unsafe_src,
                                  inbytes_left,
@@ -182,7 +177,7 @@ impl Iconv {
                   *inbytes_left,
                   *outbytes_left,
                   res);
-            if !raw::is_iconv_valid(&res) {
+            if !raw::is_iconv_valid(res) {
                 let Errno(err_num) = errno();
                 match err_num {
                     libc::E2BIG => {
@@ -206,7 +201,7 @@ impl Iconv {
                     }
                 }
             }
-            return Ok(dst.len() - (*outbytes_left as usize));
+            Ok(dst.len() - (*outbytes_left as usize))
         }
     }
 
@@ -269,16 +264,15 @@ impl Drop for Iconv {
 
 #[test]
 fn test_iconv_raw() {
-    let _ = env_logger::init();
     let mut iconv = Iconv::new("cp932", "utf-8").unwrap();
-    let mut src = "あいうえお".bytes().collect::<Vec<u8>>();
+    let src = "あいうえお".bytes().collect::<Vec<u8>>();
     let mut outbuf = [0u8; 1000];
-    let res = iconv.convert_raw(&mut src, &mut outbuf).unwrap();
+    let res = iconv.convert_raw(&src, &mut outbuf).unwrap();
     info!("First result: {}", res);
     info!("CP932 converted: {:?}", &outbuf[0..11]);
     let mut outbuf2 = [0u8; 1000];
     let mut iconv = Iconv::new("utf-8", "cp932").unwrap();
-    let res2 = iconv.convert_raw(&mut outbuf[0..res], &mut outbuf2).unwrap();
+    let res2 = iconv.convert_raw(&outbuf[0..res], &mut outbuf2).unwrap();
     info!("Second result: {}", res2);
     let s = String::from_utf8_lossy(&outbuf2[0..res2]);
     info!("Recoverd: {}", s);
@@ -289,29 +283,25 @@ fn test_iconv_raw() {
 /// Confirm that `Iconv::convert_raw` set errno to E2BIG when output buffer has no room
 #[test]
 fn what_if_dst_array_is_short() {
-    let _ = env_logger::init();
     let mut iconv = Iconv::new("cp932", "utf-8").unwrap();
-    let mut src = "あいうえお".bytes().collect::<Vec<u8>>();
+    let src = "あいうえお".bytes().collect::<Vec<u8>>();
     let mut outbuf = [0u8; 4];
     info!("Let's begin shortcomming\n");
-    if let Err(IconvError::InsufficientOutBuffer(_, _)) = iconv.convert_raw(&mut src, &mut outbuf) {
-        return;
+    if let Err(IconvError::InsufficientOutBuffer(_, _)) = iconv.convert_raw(&src, &mut outbuf) {
     } else {
         unreachable!();
     }
-
 }
 
 /// Test `Iconv::convert` gives the same result as the input through utf-8 -> cp932 -> utf-8
 /// conversions
 #[test]
 fn test_convert_raw_turn() {
-    let _ = env_logger::init();
     let mut iconv = Iconv::new("cp932", "utf-8").unwrap();
     let mut iconv_rev = Iconv::new("utf-8", "cp932").unwrap();
-    let mut src = "あいうえお".bytes().collect::<Vec<u8>>();
+    let src = "あいうえお".bytes().collect::<Vec<u8>>();
     let mut dst = Vec::new();
-    let res = iconv.convert(&mut src, &mut dst, 0);
+    let res = iconv.convert(&src, &mut dst, 0);
     match res {
         Ok(_) => {}
         Err(_) => {
@@ -320,7 +310,7 @@ fn test_convert_raw_turn() {
     }
     info!("line {}: Result of convert: {:?}", line!(), dst);
     let mut dst2 = Vec::new();
-    let _ = iconv_rev.convert(&mut dst, &mut dst2, 0);
+    let _ = iconv_rev.convert(&dst, &mut dst2, 0);
     let s_recoverd = String::from_utf8(dst2).unwrap();
     assert_eq!("あいうえお".to_string(), s_recoverd);
 }
