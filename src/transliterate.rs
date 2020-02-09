@@ -3,6 +3,9 @@ use crate::locale_ffi::{__locale_struct, freelocale, newlocale, uselocale, LC_AL
 use std::ffi::CString;
 use std::ptr;
 
+/// Transliterates text in the same thread where it is called.
+/// Be aware this calls the unsafe ffi function uselocale from C.
+/// If you don't know if that is safe, preffer to use TextTransliterateOffThread instead
 #[derive(Debug, Default)]
 pub struct TextTransliterate;
 

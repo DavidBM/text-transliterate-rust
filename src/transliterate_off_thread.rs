@@ -24,6 +24,9 @@ struct TransliterationData {
     locale: String,
 }
 
+/// Transliterate from the chosen locale to ascii.
+/// This function will create another thread in order to isolate the
+/// locale set for iconv effects. 
 #[derive(Debug)]
 pub struct TextTransliterateOffThread {
     sender: Sender<TransliterateRequest>,
@@ -85,6 +88,8 @@ impl TextTransliterateOffThread {
         self.sender = sender;
     }
 
+    /// Synchronous transliteration. It will pause the thread until the second thread
+    /// finish the transliteration.
     pub fn transliterate<S: Into<String>>(
         &mut self,
         text: S,
@@ -123,6 +128,10 @@ impl TextTransliterateOffThread {
         }
     }
 
+    /// Async version of the `transliterate` method. Be aware that in cases of a lot of
+    /// throughput, this method won't scale. In order to do that inside of a multicore 
+    /// async reactor (like Tokio or Async_Std) maybe is a better idea to use the Sync 
+    /// version with many instances of this struct.
     pub async fn async_transliterate<S: Into<String>>(
         &mut self,
         text: S,
