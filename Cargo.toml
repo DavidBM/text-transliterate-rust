@@ -4,7 +4,7 @@ description = "simple utility for transliterate texts using the SO iconv from PO
 license = "Apache-2.0/MIT"
 repository = "https://github.com/DavidBM/text-transliterate-rust"
 homepage = "https://github.com/DavidBM/text-transliterate-rust"
-version = "1.1.1"
+version = "1.1.2"
 authors = ["David Bonet <webbonet@gmail.com>"]
 edition = "2018"
 

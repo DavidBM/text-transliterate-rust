@@ -65,17 +65,9 @@ pub enum IconvError {
     InvalidSequence(usize, usize),
     InsufficientOutBuffer(usize, usize),
     InsufficientInBuffer(usize, usize),
-    OnClose(Errno),
 }
 
 impl IconvError {
-    pub fn iconv_err(e: Errno) -> Self {
-        IconvError::OnFindingConversion(e)
-    }
-    pub fn cstring_err(e: std::ffi::NulError) -> Self {
-        IconvError::OnCStringConversion(e)
-    }
-
     /// Returns short description of `IconvError`
     ///
     /// This is used in `(IconvError as Display)::fmt`
@@ -98,7 +90,6 @@ impl IconvError {
                          written",
                 remain_index, wrote_index
             ),
-            OnClose(ref e) => format!("C function `iconv_close` failed: {}", e),
         }
     }
 }
