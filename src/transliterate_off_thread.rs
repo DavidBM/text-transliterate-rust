@@ -1,8 +1,7 @@
-use crate::transliterate::TextTransliterate;
+use crate::transliterate::{TextTransliterate, TransliterationError};
 use async_std::sync::{channel as async_channel, Receiver as AsyncReceiver, Sender as AsyncSender};
 use async_std::task::block_on;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use crossbeam::{crossbeam_channel::bounded, crossbeam_channel::unbounded, Receiver, Sender};
 use std::thread;
 
 #[derive(Debug)]
@@ -13,8 +12,8 @@ enum TransliterateRequest {
 
 #[derive(Debug)]
 enum MessageCallback {
-    Sync(Sender<Result<String, &'static str>>),
-    Async(AsyncSender<Result<String, &'static str>>),
+    Sync(Sender<Result<String, TransliterationError>>),
+    Async(AsyncSender<Result<String, TransliterationError>>),
 }
 
 #[derive(Debug)]
@@ -24,34 +23,43 @@ struct TransliterationData {
     locale: String,
 }
 
+#[derive(Debug)]
+pub enum TransliterateFailure {
+    TransliterationError(TransliterationError),
+    ErrorCommunicationWithPool,
+}
+
 /// Transliterate from the chosen locale to ascii.
 /// This function will create another thread in order to isolate the
-/// locale set for iconv effects. 
+/// locale set for iconv effects.
 #[derive(Debug)]
 pub struct TextTransliterateOffThread {
     sender: Sender<TransliterateRequest>,
+    pool_size: usize,
 }
 
 impl Default for TextTransliterateOffThread {
     fn default() -> Self {
-        Self::new()
+        Self::new(4)
     }
 }
 
 impl TextTransliterateOffThread {
-    pub fn new() -> TextTransliterateOffThread {
-        let sender = TextTransliterateOffThread::generate_transliterator();
+    pub fn new(pool_size: usize) -> TextTransliterateOffThread {
+        let sender = TextTransliterateOffThread::generate_transliterator_pool(pool_size);
 
-        TextTransliterateOffThread { sender }
+        TextTransliterateOffThread { sender, pool_size }
     }
 
-    fn generate_transliterator() -> Sender<TransliterateRequest> {
+    fn generate_transliterator_pool(pool_size: usize) -> Sender<TransliterateRequest> {
         let (sender, receiver): (Sender<TransliterateRequest>, Receiver<TransliterateRequest>) =
-            mpsc::channel();
+            unbounded();
 
-        let text_transliterate = TextTransliterate::new();
+        for _ in 0..pool_size {
+            let text_transliterate = TextTransliterate::new();
 
-        TextTransliterateOffThread::create_thread(receiver, text_transliterate);
+            TextTransliterateOffThread::create_thread(receiver.clone(), text_transliterate);
+        }
 
         sender
     }
@@ -84,8 +92,9 @@ impl TextTransliterateOffThread {
 
     fn regenerate_transliterator(&mut self) {
         let _ = self.sender.send(TransliterateRequest::Die);
-        let sender = TextTransliterateOffThread::generate_transliterator();
-        self.sender = sender;
+        let sender = TextTransliterateOffThread::generate_transliterator_pool(self.pool_size);
+        let old_sender = std::mem::replace(&mut self.sender, sender);
+        drop(old_sender); // This will "disconnect" the channel, making the threads to consume all messages and finish.
     }
 
     /// Synchronous transliteration. It will pause the thread until the second thread
@@ -94,12 +103,12 @@ impl TextTransliterateOffThread {
         &mut self,
         text: S,
         locale: S,
-    ) -> Result<String, &'static str> {
+    ) -> Result<String, TransliterateFailure> {
         type SenderReceiver = (
-            Sender<Result<String, &'static str>>,
-            Receiver<Result<String, &'static str>>,
+            Sender<Result<String, TransliterationError>>,
+            Receiver<Result<String, TransliterationError>>,
         );
-        let (sender, receiver): SenderReceiver = mpsc::channel();
+        let (sender, receiver): SenderReceiver = bounded(1);
 
         let text = text.into();
         let locale = locale.into();
@@ -107,39 +116,37 @@ impl TextTransliterateOffThread {
         let send_result =
             self.sender
                 .send(TransliterateRequest::Transliterate(TransliterationData {
-                    text: text.clone(),
+                    text: text,
                     sender: MessageCallback::Sync(sender),
-                    locale: locale.clone(),
+                    locale: locale,
                 }));
 
         if send_result.is_err() {
             self.regenerate_transliterator();
-            return self.transliterate(text, locale);
+            return Err(TransliterateFailure::ErrorCommunicationWithPool);
         }
 
         if let Ok(result) = receiver.recv() {
             match result {
                 Ok(text) => Ok(text),
-                Err(message) => Err(message),
+                Err(message) => Err(TransliterateFailure::TransliterationError(message)),
             }
         } else {
             self.regenerate_transliterator();
-            Err("Error communicating with the thread. Regenerating thread")
+            Err(TransliterateFailure::ErrorCommunicationWithPool)
         }
     }
 
-    /// Async version of the `transliterate` method. Be aware that in cases of a lot of
-    /// throughput, this method won't scale. In order to do that inside of a multicore 
-    /// async reactor (like Tokio or Async_Std) maybe is a better idea to use the Sync 
-    /// version with many instances of this struct.
+    /// Async version of the `transliterate` method. This will send the transliteration
+    /// to the thread pool and return once finished
     pub async fn async_transliterate<S: Into<String>>(
         &mut self,
         text: S,
         locale: S,
-    ) -> Result<String, &'static str> {
+    ) -> Result<String, TransliterateFailure> {
         type SenderReceiver = (
-            AsyncSender<Result<String, &'static str>>,
-            AsyncReceiver<Result<String, &'static str>>,
+            AsyncSender<Result<String, TransliterationError>>,
+            AsyncReceiver<Result<String, TransliterationError>>,
         );
         let (sender, receiver): SenderReceiver = async_channel(1);
 
@@ -156,17 +163,17 @@ impl TextTransliterateOffThread {
 
         if send_result.is_err() {
             self.regenerate_transliterator();
-            return Err("Send failed. Try again.");
+            return Err(TransliterateFailure::ErrorCommunicationWithPool);
         }
 
         if let Some(result) = receiver.recv().await {
             match result {
                 Ok(text) => Ok(text),
-                Err(message) => Err(message),
+                Err(message) => Err(TransliterateFailure::TransliterationError(message)),
             }
         } else {
             self.regenerate_transliterator();
-            Err("Error communicating with the thread. Regenerating thread")
+            Err(TransliterateFailure::ErrorCommunicationWithPool)
         }
     }
 }
@@ -184,7 +191,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut tt = TextTransliterateOffThread::new();
+        let mut tt: TextTransliterateOffThread = Default::default();
         let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
         if let Ok(result) = result {
             assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
@@ -195,7 +202,7 @@ mod tests {
 
     #[test]
     fn japanse_dont_crash() {
-        let mut tt = TextTransliterateOffThread::new();
+        let mut tt: TextTransliterateOffThread = Default::default();
         let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
         if let Ok(result) = result {
             assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
@@ -206,7 +213,7 @@ mod tests {
 
     #[test]
     fn chinese_dont_crash() {
-        let mut tt = TextTransliterateOffThread::new();
+        let mut tt: TextTransliterateOffThread = Default::default();
         let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
         if let Ok(result) = result {
             assert_eq!("?????????", result);
@@ -217,7 +224,7 @@ mod tests {
 
     #[test]
     fn coins() {
-        let mut tt = TextTransliterateOffThread::new();
+        let mut tt: TextTransliterateOffThread = Default::default();
         let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
         if let Ok(result) = result {
             assert_eq!("EUR GBP $ JPY", result);
@@ -229,7 +236,7 @@ mod tests {
     #[test]
     fn it_works_async() {
         block_on(async {
-            let mut tt = TextTransliterateOffThread::new();
+            let mut tt: TextTransliterateOffThread = Default::default();
             let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
             if let Ok(result) = result {
                 assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
@@ -242,7 +249,7 @@ mod tests {
     #[test]
     fn japanse_dont_crash_async() {
         block_on(async {
-            let mut tt = TextTransliterateOffThread::new();
+            let mut tt: TextTransliterateOffThread = Default::default();
             let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
             if let Ok(result) = result {
                 assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
@@ -255,7 +262,7 @@ mod tests {
     #[test]
     fn chinese_dont_crash_async() {
         block_on(async {
-            let mut tt = TextTransliterateOffThread::new();
+            let mut tt: TextTransliterateOffThread = Default::default();
             let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
             if let Ok(result) = result {
                 assert_eq!("?????????", result);
@@ -268,7 +275,7 @@ mod tests {
     #[test]
     fn coins_async() {
         block_on(async {
-            let mut tt = TextTransliterateOffThread::new();
+            let mut tt: TextTransliterateOffThread = Default::default();
             let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
             if let Ok(result) = result {
                 assert_eq!("EUR GBP $ JPY", result);

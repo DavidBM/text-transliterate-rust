@@ -1,12 +1,14 @@
-//! Utility to transliterate texts into ascii characters. 
+//! Utility to transliterate texts into ascii characters.
 //! This utility depends of the iconv utility installed in the SO.
-//! You want to have glibc with the correct locales installed. 
-//! 
+//! You want to have glibc with the correct locales installed.
+//!
 //! For example. If you want to transliterate from german, you need to
 //! have install the "de_DE.UTF-8" locale in your SO.
-//! 
+//!
 //! You can do it with https://askubuntu.com/questions/76013/how-do-i-add-locale-to-ubuntu-server
-//! 
+//!
+//! Iconv uses the thread locale in order to decide transliteration table to use.
+//! Prefer to use TextTransliterateOffThread as it will isolate the side effects of the uselocale C function
 
 mod iconv;
 mod locale_ffi;

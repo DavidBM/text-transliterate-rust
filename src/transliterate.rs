@@ -1,5 +1,6 @@
 use crate::iconv::Iconv;
-use crate::locale_ffi::{__locale_struct, freelocale, newlocale, uselocale, LC_ALL_MASK};
+use crate::iconv::IconvError;
+use crate::locale_ffi::{__locale_struct, freelocale, newlocale, uselocale, LC_ALL_MASK, };
 use std::ffi::CString;
 use std::ptr;
 
@@ -26,8 +27,7 @@ impl TextTransliterate {
                 let locale = newlocale(LC_ALL_MASK, locale, null);
                 let old_locale = uselocale(locale);
 
-                //uselocale returns in some systems 0xffffffffffffffff instead of locale_t 0.
-                //I'm starting to think that I should parse the locale transliteration files in rust...
+                //uselocale returns in some systems 0xffff_ffff_ffff_ffff instead of locale_t 0.
                 if !old_locale.is_null()
                     && old_locale != 0xffff_ffff_ffff_ffff as *mut __locale_struct
                 {
@@ -45,7 +45,7 @@ impl TextTransliterate {
         &self,
         text: S,
         locale: S,
-    ) -> Result<String, &'static str> {
+    ) -> Result<String, TransliterationError> {
         let text = text.into();
         let locale = locale.into();
 
@@ -56,23 +56,30 @@ impl TextTransliterate {
                 let mut buf = Vec::new();
                 let result = iconv.convert(&text.as_bytes(), &mut buf, 0);
 
-                if result.is_err() {
-                    return Err("Error in transliteration");
+                if let Err(error) = result {
+                    return Err(TransliterationError::IconvError(error));
                 }
                 let output_utf8 = String::from_utf8(buf);
 
-                if let Ok(output) = output_utf8 {
-                    Ok(output)
-                } else {
-                    Err("Error in the transliteration")
+                match output_utf8 {
+                    Ok(output) => Ok(output),
+                    Err(error) => Err(TransliterationError::IconvOutputNotUtf8(error)),
                 }
             } else {
-                Err("Not possible initialize iconv")
+                Err(TransliterationError::IconvStartFailed)
             }
         } else {
-            Err("Not possible to set the locale")
+            Err(TransliterationError::ErrorChangingThreadLocale)
         }
     }
+}
+
+#[derive(Debug)]
+pub enum TransliterationError {
+    IconvError(IconvError),
+    IconvStartFailed,
+    ErrorChangingThreadLocale,
+    IconvOutputNotUtf8(std::string::FromUtf8Error),
 }
 
 #[cfg(test)]
