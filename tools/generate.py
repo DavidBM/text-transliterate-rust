@@ -315,7 +315,8 @@ def emit_table(name, mapping):
     prefix.with_suffix(".values").write_bytes(output)
     sequences = sorted(sequences.items(), key=lambda pair: (pair[0][0], -len(pair[0]), pair[0]))
     entries = [f"({rust_string(source)}, {rust_string(value)})" for source, value in sequences]
-    return "[" + ", ".join(entries) + "]"
+    ascii_starts = sorted({ord(source[0]) for source, _ in sequences if source[0].isascii()})
+    return "[" + ", ".join(entries) + "]", ascii_starts
 
 
 def emit_default_scalars(base, fallback):
@@ -391,6 +392,7 @@ def emit_default_scalars(base, fallback):
         '    records: include_bytes!("generated/script_shadowed.keys"),',
         '    output: include_str!("generated/script_shadowed.values"),',
         "    sequences: &[],",
+        "    ascii_starts: &[],",
         "};",
     ])
     (ROOT / "src" / "generated_scalars.rs").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -404,7 +406,7 @@ def generate(locales, fallback, ranges):
     lines = []
     features = {"all-glibc": [], "all-scripts": []}
     for table, mapping in tables.items():
-        entries = emit_table(f"glibc_{table}", mapping)
+        entries, ascii_starts = emit_table(f"glibc_{table}", mapping)
         if table != "base":
             languages = sorted(language for language, variants in profiles.items() if table in variants.values())
             predicates = ", ".join(f'feature = "{language}"' for language in languages)
@@ -414,6 +416,7 @@ def generate(locales, fallback, ranges):
         lines.append(f'    records: include_bytes!("generated/glibc_{table}.keys"),')
         lines.append(f'    output: include_str!("generated/glibc_{table}.values"),')
         lines.append(f'    sequences: &{entries},')
+        lines.append(f'    ascii_starts: &{ascii_starts},')
         lines.append("};")
 
     aliases = {}
@@ -462,6 +465,7 @@ def generate(locales, fallback, ranges):
             f'    records: include_bytes!("generated/script_{file_stem}.keys"),',
             f'    output: include_str!("generated/script_{file_stem}.values"),',
             "    sequences: &[],",
+            "    ascii_starts: &[],",
             "});",
             f'#[cfg(not(feature = "{feature}"))]',
             f"static {file_stem.upper()}: Option<RuleTable> = None;",

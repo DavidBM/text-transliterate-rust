@@ -14,6 +14,7 @@ jobs:
           - --no-default-features
           - --no-default-features --features de
           - --no-default-features --features ru
+          - --no-default-features --features all-scripts
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

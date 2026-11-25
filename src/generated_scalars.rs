@@ -176,4 +176,5 @@ pub(super) static SHADOWED: RuleTable = RuleTable {
     records: include_bytes!("generated/script_shadowed.keys"),
     output: include_str!("generated/script_shadowed.values"),
     sequences: &[],
+    ascii_starts: &[],
 };

@@ -67,10 +67,11 @@ The output is an ASCII approximation for search, slugs, and legacy systems.
 ## Performance comparison
 
 The default build uses a packed lookup for the neutral locale. The benchmark
-compares the public `transliterate` API with the previous engine, AnyAscii,
-deunicode, Unidecode, and disarm. It prints input MiB/s and whether each library
-produced the same bytes as the previous engine. Use matching rows to compare
-conversion speed for equivalent output.
+compares the public `transliterate` API with the original v3 engine, the first
+packed implementation, AnyAscii, deunicode, Unidecode, and disarm. It prints
+input MiB/s and whether each library produced matching bytes. The German
+locale case compares the two packed implementations directly so the German
+sequence rules are part of the measurement.
 
 ```sh
 cargo run --release --locked --manifest-path benchmarks/compare/Cargo.toml

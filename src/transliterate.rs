@@ -5,7 +5,7 @@ use std::fmt;
 #[rustfmt::skip]
 #[path = "generated_glibc.rs"]
 mod glibc;
-#[cfg(all(feature = "script-data", not(feature = "all-scripts")))]
+#[cfg(all(feature = "script-data", any(test, not(feature = "all-scripts"))))]
 #[rustfmt::skip]
 #[path = "generated_scripts.rs"]
 mod scripts;
@@ -19,6 +19,7 @@ struct RuleTable {
     records: &'static [u8],
     output: &'static str,
     sequences: &'static [(&'static str, &'static str)],
+    ascii_starts: &'static [u8],
 }
 
 impl RuleTable {
@@ -71,18 +72,12 @@ impl RuleTable {
             .find(|(input, _)| text.starts_with(input))
             .copied()
     }
-
-    fn has_ascii_prefix(&self) -> bool {
-        self.sequences
-            .first()
-            .is_some_and(|(input, _)| input.as_bytes()[0].is_ascii())
-    }
 }
 
 #[cfg(feature = "all-scripts")]
 #[inline]
-fn packed_scalar(key: usize) -> &'static [u8] {
-    if key < scalars::DIRECT_LIMIT {
+fn packed_scalar(key: usize) -> &'static [u8; 8] {
+    let entry = if key < scalars::DIRECT_LIMIT {
         let offset = key * 8;
         &scalars::PREFIX[offset..offset + 8]
     } else {
@@ -90,11 +85,12 @@ fn packed_scalar(key: usize) -> &'static [u8] {
         let page = u16::from_le_bytes([scalars::PAGES[at], scalars::PAGES[at + 1]]);
         let offset = (usize::from(page) * 64 + (key & 63)) * 8;
         &scalars::BLOCKS[offset..offset + 8]
-    }
+    };
+    entry.try_into().expect("eight-byte packed entry")
 }
 
 #[cfg(feature = "all-scripts")]
-fn long_replacement(packed: &[u8]) -> Option<&'static str> {
+fn long_replacement(packed: &[u8; 8]) -> Option<&'static str> {
     let index = usize::from(u16::from_le_bytes([packed[0], packed[1]]));
     (index != 0).then(|| scalars::OUTPUTS[index])
 }
@@ -122,6 +118,11 @@ fn supplemental(scalar: char) -> Option<&'static str> {
 
 #[cfg(all(feature = "script-data", not(feature = "all-scripts")))]
 fn supplemental(scalar: char) -> Option<&'static str> {
+    compact_supplemental(scalar)
+}
+
+#[cfg(all(feature = "script-data", any(test, not(feature = "all-scripts"))))]
+fn compact_supplemental(scalar: char) -> Option<&'static str> {
     let scalar_value = u32::from(scalar);
     let position = scripts::RANGES.partition_point(|&(first, _, _)| first <= scalar_value);
     let &(_, end, table) = scripts::RANGES.get(position.checked_sub(1)?)?;
@@ -280,8 +281,7 @@ impl Transliterator {
             }
             return;
         }
-        let check_ascii_prefix =
-            self.profile.is_some_and(RuleTable::has_ascii_prefix) || glibc::BASE.has_ascii_prefix();
+        let local_starts = self.profile.map_or(&[][..], |table| table.ascii_starts);
         while let Some(first) = text.chars().next() {
             if first.is_ascii() {
                 let run = text.bytes().take_while(u8::is_ascii).count();
@@ -289,9 +289,12 @@ impl Transliterator {
                     output.push_str(text);
                     break;
                 }
-                // A decomposed rule can start on the final ASCII character of
-                // this run, such as the 'a' in a + COMBINING DIAERESIS.
-                let copy = run - usize::from(check_ascii_prefix);
+                // A decomposed rule can start on the final ASCII character,
+                // but only if that character appears in a sequence table.
+                let final_ascii = text.as_bytes()[run - 1];
+                let starts_sequence = local_starts.contains(&final_ascii)
+                    || glibc::BASE.ascii_starts.contains(&final_ascii);
+                let copy = run - usize::from(starts_sequence);
                 output.push_str(&text[..copy]);
                 text = &text[copy..];
                 if copy == run {
@@ -323,51 +326,29 @@ impl Transliterator {
     }
 
     #[cfg(feature = "all-scripts")]
-    fn append_default<const CHUNK_SIZE: usize>(&self, text: &str, output: &mut String) {
-        const ASCII_HIGH_BITS: u64 = 0x8080_8080_8080_8080;
-        // Flush only the bytes that belong to the result. This amortizes
-        // UTF-8 validation and growth of the caller's String.
-        let mut bytes = text.as_bytes();
+    fn append_default<const CHUNK_SIZE: usize>(&self, mut text: &str, output: &mut String) {
         let mut chunk = [0; CHUNK_SIZE];
         let mut used = 0;
-        while let Some(&first) = bytes.first() {
+        while let Some(&first) = text.as_bytes().first() {
             if first.is_ascii() {
-                if let Some(word) = bytes.first_chunk::<8>() {
-                    let non_ascii = u64::from_le_bytes(*word) & ASCII_HIGH_BITS;
-                    let count = (non_ascii.trailing_zeros() / 8) as usize;
-                    // The speculative tail is outside `used` and never flushed.
-                    chunk[used..used + 8].copy_from_slice(word);
-                    used += count;
-                    bytes = &bytes[count..];
+                let bytes = text.as_bytes();
+                let count = if let Some(word) = bytes.first_chunk::<8>() {
+                    let (count, prefix) = padded_ascii_prefix(*word);
+                    chunk[used..used + 8].copy_from_slice(&prefix);
+                    count
                 } else {
-                    let count = bytes
-                        .iter()
-                        .position(|byte| !byte.is_ascii())
-                        .unwrap_or(bytes.len());
+                    let count = bytes.iter().take_while(|byte| byte.is_ascii()).count();
                     chunk[used..used + count].copy_from_slice(&bytes[..count]);
-                    used += count;
-                    bytes = &bytes[count..];
-                }
-            } else {
-                // A str always starts each iteration on a UTF-8 boundary.
-                let (scalar, width) = match bytes {
-                    [a, b, ..] if *a < 0xe0 => (((a & 31) as usize) << 6 | (b & 63) as usize, 2),
-                    [a, b, c, ..] if *a < 0xf0 => (
-                        ((a & 15) as usize) << 12 | ((b & 63) as usize) << 6 | (c & 63) as usize,
-                        3,
-                    ),
-                    [a, b, c, d, ..] => (
-                        ((a & 7) as usize) << 18
-                            | ((b & 63) as usize) << 12
-                            | ((c & 63) as usize) << 6
-                            | (d & 63) as usize,
-                        4,
-                    ),
-                    _ => unreachable!("valid UTF-8"),
+                    count
                 };
-                bytes = &bytes[width..];
-                let packed = packed_scalar(scalar);
-                let length = packed[7] as usize;
+                used += count;
+                text = &text[count..];
+            } else {
+                let mut chars = text.chars();
+                let scalar = chars.next().expect("nonempty text");
+                text = chars.as_str();
+                let packed = packed_scalar(scalar as usize);
+                let length = usize::from(packed[7]);
                 if length <= 7 {
                     chunk[used..used + 8].copy_from_slice(packed);
                     used += length;
@@ -377,7 +358,6 @@ impl Transliterator {
                     if let Some(value) = long_replacement(packed) {
                         output.push_str(value);
                     } else {
-                        let scalar = char::from_u32(scalar as u32).expect("valid UTF-8");
                         self.append_indirect(glibc::BASE.scalar(scalar), output);
                     }
                 }
@@ -449,6 +429,25 @@ impl Transliterator {
 fn flush_ascii(output: &mut String, chunk: &[u8]) {
     output.push_str(std::str::from_utf8(chunk).expect("transliteration tables contain ASCII"));
 }
+
+/// Returns the length of an ASCII prefix and replaces the following bytes
+/// with zeros. Little-endian order puts each byte's high bit in input order.
+#[cfg(feature = "all-scripts")]
+#[inline]
+fn padded_ascii_prefix(bytes: [u8; 8]) -> (usize, [u8; 8]) {
+    let word = u64::from_le_bytes(bytes);
+    let high_bits = word & 0x8080_8080_8080_8080;
+    if high_bits == 0 {
+        return (8, bytes);
+    }
+    let length = high_bits.trailing_zeros() / 8;
+    let mask = u64::MAX.checked_shr(64 - length * 8).unwrap_or(0);
+    (length as usize, (word & mask).to_le_bytes())
+}
+
+#[cfg(all(test, feature = "all-scripts"))]
+#[path = "packed_tests.rs"]
+mod packed_tests;
 
 /// Compatibility entry point for callers migrating from the original API.
 #[derive(Debug, Default)]

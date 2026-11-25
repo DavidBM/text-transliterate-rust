@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::hint::black_box;
+use std::sync::OnceLock;
 use std::time::Instant;
 
 fn current(input: &str) -> Cow<'_, str> {
@@ -7,6 +8,9 @@ fn current(input: &str) -> Cow<'_, str> {
 }
 fn baseline(input: &str) -> Cow<'_, str> {
     baseline::Transliterator::default().transliterate(input)
+}
+fn packed_v1(input: &str) -> Cow<'_, str> {
+    packed_v1::Transliterator::default().transliterate(input)
 }
 fn anyascii(input: &str) -> Cow<'_, str> {
     Cow::Owned(any_ascii::any_ascii(input))
@@ -19,6 +23,18 @@ fn unidecode(input: &str) -> Cow<'_, str> {
 }
 fn disarm(input: &str) -> Cow<'_, str> {
     disarm::api::transliterate(input)
+}
+fn current_german(input: &str) -> Cow<'_, str> {
+    static ENGINE: OnceLock<current::Transliterator> = OnceLock::new();
+    ENGINE
+        .get_or_init(|| current::Transliterator::new("de-DE").unwrap())
+        .transliterate(input)
+}
+fn packed_v1_german(input: &str) -> Cow<'_, str> {
+    static ENGINE: OnceLock<packed_v1::Transliterator> = OnceLock::new();
+    ENGINE
+        .get_or_init(|| packed_v1::Transliterator::new("de-DE").unwrap())
+        .transliterate(input)
 }
 type Convert = for<'a> fn(&'a str) -> Cow<'a, str>;
 
@@ -99,40 +115,54 @@ fn main() {
             "Déjà vu à Montréal, Привет, 你好世界, かな, مرحبا. ",
         ),
     ];
-    let methods: [(&str, Convert); 6] = [
+    let methods: [(&str, Convert); 7] = [
         ("current", current),
         ("baseline", baseline),
+        ("packed-v1", packed_v1),
         ("AnyAscii", anyascii),
         ("deunicode", deunicode),
         ("Unidecode", unidecode),
         ("disarm", disarm),
     ];
     for (name, sample) in corpora {
-        let input = sample.repeat(if short { 1 } else { 32768 / sample.len() });
-        let expected = baseline(&input);
-        assert_eq!(current(&input), expected, "{name}");
-        if std::env::var_os("SAMPLES").is_some() {
-            eprintln!("{name}: {sample:?}");
-            for (library, convert) in methods {
-                eprintln!("  {library}: {:?}", convert(sample));
-            }
+        compare(name, sample, short, baseline, &methods);
+    }
+    compare(
+        "german",
+        "Grüße aus Köln. Die Straße endet in einer Sackgasse. Ma\u{0308}dchen und Äpfel. ",
+        short,
+        packed_v1_german,
+        &[("current", current_german), ("packed-v1", packed_v1_german)],
+    );
+}
+
+fn compare(name: &str, sample: &str, short: bool, expected: Convert, methods: &[(&str, Convert)]) {
+    let input = sample.repeat(if short { 1 } else { 32768 / sample.len() });
+    let expected = expected(&input);
+    assert_eq!(methods[0].1(&input), expected, "{name}");
+    if std::env::var_os("SAMPLES").is_some() {
+        eprintln!("{name}: {sample:?}");
+        for (library, convert) in methods {
+            eprintln!("  {library}: {:?}", convert(sample));
         }
-        let sizes =
-            methods.map(|(_, f)| ((0.016 / run(f, &input, 25) * 25.0) as usize).clamp(25, 50_000));
-        let mut times = [[0f64; 7]; 6];
-        for sample_index in 0..7 {
-            for turn in 0..6 {
-                let i = (turn + sample_index) % 6;
-                times[i][sample_index] = run(methods[i].1, &input, sizes[i]);
-            }
+    }
+    let sizes: Vec<_> = methods
+        .iter()
+        .map(|&(_, f)| ((0.016 / run(f, &input, 25) * 25.0) as usize).clamp(25, 50_000))
+        .collect();
+    let mut times: Vec<_> = methods.iter().map(|_| Vec::with_capacity(7)).collect();
+    for sample_index in 0..7 {
+        for turn in 0..methods.len() {
+            let i = (turn + sample_index) % methods.len();
+            times[i].push(run(methods[i].1, &input, sizes[i]));
         }
-        for (i, (library, convert)) in methods.into_iter().enumerate() {
-            times[i].sort_by(f64::total_cmp);
-            println!(
-                "{name}\t{library}\t{:.2}\t{}",
-                input.len() as f64 * sizes[i] as f64 / times[i][3] / 1048576.0,
-                convert(&input) == expected
-            );
-        }
+    }
+    for (i, &(library, convert)) in methods.iter().enumerate() {
+        times[i].sort_by(f64::total_cmp);
+        println!(
+            "{name}\t{library}\t{:.2}\t{}",
+            input.len() as f64 * sizes[i] as f64 / times[i][3] / 1048576.0,
+            convert(&input) == expected
+        );
     }
 }
