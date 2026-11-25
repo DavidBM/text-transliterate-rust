@@ -100,7 +100,7 @@ The default build includes all locale profiles and supplementary scripts. With d
 
 ```toml
 [dependencies]
-text-transliterate = { version = "3", default-features = false, features = ["de", "ru"] }
+text-transliterate = { version = "4", default-features = false, features = ["de", "ru"] }
 ```
 
 `de` enables German spellings, `ru` enables Cyrillic romanization, and `ja` enables Japanese glibc rules plus the kana and Han tables. When a locale needs an omitted override, the error names the required Cargo feature. Locale identifiers include `de-CH`, `de_DE.UTF-8`, and `sr_RS@latin`.
@@ -119,4 +119,4 @@ The Rust source is available under MIT or Apache-2.0. The pinned data, upstream 
 
 ## Upgrading from 2.x
 
-`TextTransliterate::new().transliterate(text, locale)` still returns an owned `String`. The off-thread API and Cargo feature were removed in 3.x. Errors describe locale selection, and supplementary script data can produce different output from a host’s glibc.
+`TextTransliterate::new().transliterate(text, locale)` still returns an owned `String`. The off-thread API and Cargo feature were removed in this release. Errors describe locale selection, and supplementary script data can produce different output from a host’s glibc.

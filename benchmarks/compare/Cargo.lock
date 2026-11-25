@@ -483,10 +483,6 @@ dependencies = [
 [[package]]
 name = "text-transliterate"
 version = "3.0.0"
-
-[[package]]
-name = "text-transliterate"
-version = "3.0.0"
 source = "git+https://github.com/DavidBM/text-transliterate-rust?rev=6b5d9d666980b9a98e9a2253b973d77dd0066a6a#6b5d9d666980b9a98e9a2253b973d77dd0066a6a"
 dependencies = [
  "async-channel",
@@ -501,6 +497,10 @@ dependencies = [
  "async-channel",
  "crossbeam-channel",
 ]
+
+[[package]]
+name = "text-transliterate"
+version = "4.0.0"
 
 [[package]]
 name = "thiserror"
@@ -545,9 +545,9 @@ dependencies = [
  "any_ascii",
  "deunicode",
  "disarm",
- "text-transliterate 3.0.0",
  "text-transliterate 3.0.0 (git+https://github.com/DavidBM/text-transliterate-rust?rev=6b5d9d666980b9a98e9a2253b973d77dd0066a6a)",
  "text-transliterate 3.0.0 (git+https://github.com/DavidBM/text-transliterate-rust?rev=c992b6fbb45556931a7a348037869cd6d257af4a)",
+ "text-transliterate 4.0.0",
  "unidecode",
 ]
 
