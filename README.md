@@ -1,39 +1,38 @@
 # text-transliterate-rust
 
-Prove of concept (AKA, Not ready for production) for text transliteration. It uses the OS iconv with //TRANSLITERATE//IGNORE for transforming character between locales. 
+Transliterate Unicode text to ASCII using glibc's `iconv` on Linux. Install the
+locale you want to use. The host's locale data determines the output.
 
-The locale must be available in the OS. 
-
-### Same thread execution (not recommended)
-
-(you can see the tests for more results):
+## On the calling thread
 
 ```rust
-		let tt = TextTransliterate::new();
-		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-		if let Ok(result) = result {
-			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-		}
+use text_transliterate::TextTransliterate;
+
+let converter = TextTransliterate::new();
+let result = converter.transliterate("ü ä ö ß", "de_DE.UTF-8");
+assert_eq!(result.unwrap(), "ue ae oe ss");
 ```
 
-For using the correct locale (for example, to transliterate German letter correctly) it must use the function `uselocale` from C. This changes the locale of the thread. For avoiding you can use the "off-thread" version, that creates a new thread for executing the `uselocale` and `iconv`
+The converter restores the caller's previous thread locale after each call.
 
-### off thread example (recommended)
+## On a worker thread
 
 ```rust
-        let mut tt = TextTransliterateOffThread::new();
-        let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-        }
+use text_transliterate::TextTransliterateOffThread;
+
+let mut converter = TextTransliterateOffThread::default();
+let result = converter.transliterate("ü ä ö ß", "de_DE.UTF-8");
+assert_eq!(result.unwrap(), "ue ae oe ss");
 ```
 
-### Notes
+Use `async_transliterate` to await the worker result without blocking the caller.
 
-1) The test results can change between machines. Keep in mind that.
-2) The code depends of GNU libc
-3) There is a unsafe code that can create problems:
+## Tests
 
-### License
+Install `de_DE.UTF-8`, `ja_JP.UTF-8`, `zh_CN.UTF-8`, and `en_US.UTF-8` before
+running `cargo test`. On a glibc system with locale sources installed, you can
+also generate them locally and set `LOCPATH` to the output directory.
 
-Apache-2.0/MIT
+## License
+
+MIT or Apache-2.0.

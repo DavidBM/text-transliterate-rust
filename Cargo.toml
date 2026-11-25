@@ -1,7 +1,7 @@
 [package]
 name = "text-transliterate"
-description = "simple utility for transliterate texts using the SO iconv from POSIX"
-license = "Apache-2.0/MIT"
+description = "simple utility for transliterate texts using the system iconv on glibc Linux"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/DavidBM/text-transliterate-rust"
 homepage = "https://github.com/DavidBM/text-transliterate-rust"
 documentation = "https://docs.rs/text-transliterate"
@@ -10,8 +10,11 @@ authors = ["David Bonet <webbonet@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2"
+libc = "0.2.155"
 errno = "0.2.4"
 log = "0.4.8"
-async-std = {version = "1.5.0", features = ["unstable"]}
-crossbeam = "0.7.3"
+async-channel = "2"
+crossbeam-channel = "0.5"
+
+[dev-dependencies]
+futures-lite = "2"

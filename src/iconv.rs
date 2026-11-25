@@ -2,54 +2,12 @@
 code copyinspired from: git@github.com:y-stm/rust-iconv.git (witch have a MIT license: https://raw.githubusercontent.com/andelf/rust-iconv/9e2fecaa09c5d1d632fc34b0291d31002f3053c0/Cargo.toml)
 */
 use errno::{errno, Errno};
-use libc;
-use libc::size_t;
+use libc::{iconv, iconv_close, iconv_open, iconv_t};
 use log::info;
 use std::borrow::Cow;
 use std::error::Error;
 use std::ffi::CString;
 use std::fmt::{Display, Formatter};
-
-#[link(name = "iconv")]
-pub mod raw {
-    use libc::{c_char, c_int, c_void, size_t};
-    #[allow(non_camel_case_types)]
-    pub type iconv_t = *mut c_void;
-
-    /// Check whether iconv_t is successfully created
-    ///
-    /// `iconv_open(3)` returns (iconv_t)-1 when failed to create new iconv object.
-    /// In rust we should use `std::mem::transmute` to check the return value.
-    #[inline]
-    pub fn is_iconv_t_valid(cd: iconv_t) -> bool {
-        let err = -1 as isize as *mut core::ffi::c_void;
-        cd != err
-    }
-
-    /// Check wheter iconv conversion is successfully done.
-    ///
-    /// `iconv(3)` returns (size_t)-1 when conversion failed.
-    /// In rust we should use unsafe `std::mem::transmute` to check the return value.
-    #[inline]
-    pub fn is_iconv_valid(v: size_t) -> bool {
-        unsafe {
-            let err = ::std::mem::transmute::<isize, size_t>(-1);
-            v != err
-        }
-    }
-
-    extern "C" {
-        pub fn iconv(
-            cd: iconv_t,
-            inbuf: *const *const u8,
-            inbytesleft: *mut size_t,
-            outbuf: *mut *mut u8,
-            outbytesleft: *mut size_t,
-        ) -> size_t;
-        pub fn iconv_open(tocode: *const c_char, fromcode: *const c_char) -> iconv_t;
-        pub fn iconv_close(cd: iconv_t) -> c_int;
-    }
-}
 
 /// The error given by iconv.
 ///
@@ -107,7 +65,7 @@ impl Error for IconvError {
 }
 
 pub struct Iconv {
-    iconv: raw::iconv_t,
+    iconv: iconv_t,
 }
 
 impl Iconv {
@@ -116,8 +74,8 @@ impl Iconv {
         let tocode_c = CString::new(tocode).or_else(&to_iconv_err)?;
         let fromcode_c = CString::new(fromcode).or_else(&to_iconv_err)?;
         unsafe {
-            let cd = raw::iconv_open(tocode_c.into_raw(), fromcode_c.into_raw());
-            if !raw::is_iconv_t_valid(cd) {
+            let cd = iconv_open(tocode_c.as_ptr(), fromcode_c.as_ptr());
+            if cd == (-1_isize) as iconv_t {
                 return Err(IconvError::OnFindingConversion(errno()));
             }
             Ok(Iconv { iconv: cd })
@@ -136,57 +94,33 @@ impl Iconv {
     /// * `Result::Err(InsufficientOutBuffer(usize, usize)) -
     ///         If there's no sufficient room in `dst`, returns the index of `src` where conversion
     ///         is processed and the index of `dst` where the converted text is written.
-    pub fn convert_raw(&mut self, src: &[u8], mut dst: &mut [u8]) -> Result<usize, IconvError> {
-        use self::IconvError::*;
-        let mut inbytes_left = src.len();
-        let mut outbytes_left = dst.len();
-        unsafe {
-            let inbytes_left = &mut inbytes_left as *mut size_t;
-            let outbytes_left = &mut outbytes_left as *mut size_t;
-            let unsafe_src = &src as *const &[u8] as *const *const u8;
-            let unsafe_dst = &mut dst as *mut &mut [u8] as *mut *mut u8;
-            let res = raw::iconv(
+    pub fn convert_raw(&mut self, src: &[u8], dst: &mut [u8]) -> Result<usize, IconvError> {
+        let mut input = src.as_ptr().cast_mut().cast();
+        let mut output = dst.as_mut_ptr().cast();
+        let mut input_left = src.len();
+        let mut output_left = dst.len();
+        // The buffers are valid for the supplied lengths. iconv updates the local
+        // pointers and counts and only writes to the destination buffer.
+        let result = unsafe {
+            iconv(
                 self.iconv,
-                unsafe_src,
-                inbytes_left,
-                unsafe_dst,
-                outbytes_left,
-            );
-            info!(
-                "inbytes_left:{}, outbytes_left:{}, res:{}",
-                *inbytes_left, *outbytes_left, res
-            );
-            if !raw::is_iconv_valid(res) {
-                let Errno(err_num) = errno();
-                match err_num {
-                    libc::E2BIG => {
-                        info!("output buffer has no sufficient room");
-                        return Err(InsufficientOutBuffer(
-                            src.len() - (*inbytes_left as usize),
-                            dst.len() - (*outbytes_left as usize),
-                        ));
-                    }
-                    libc::EILSEQ => {
-                        info!("Invalid multibyte in input");
-                        return Err(InvalidSequence(
-                            src.len() - (*inbytes_left as usize),
-                            dst.len() - (*outbytes_left as usize),
-                        ));
-                    }
-                    libc::EINVAL => {
-                        info!("Insufficient multibyte in input. Maybe more input is needed.");
-                        return Err(InsufficientInBuffer(
-                            src.len() - (*inbytes_left as usize),
-                            dst.len() - (*outbytes_left as usize),
-                        ));
-                    }
-                    _ => {
-                        info!("Unknown error");
-                        return Err(OnConversion(Cow::Borrowed("Unknown Error")));
-                    }
-                }
-            }
-            Ok(dst.len() - (*outbytes_left as usize))
+                &mut input,
+                &mut input_left,
+                &mut output,
+                &mut output_left,
+            )
+        };
+        let read = src.len() - input_left;
+        let written = dst.len() - output_left;
+        if result != usize::MAX {
+            return Ok(written);
+        }
+
+        match errno().0 {
+            libc::E2BIG => Err(IconvError::InsufficientOutBuffer(read, written)),
+            libc::EILSEQ => Err(IconvError::InvalidSequence(read, written)),
+            libc::EINVAL => Err(IconvError::InsufficientInBuffer(read, written)),
+            _ => Err(IconvError::OnConversion(Cow::Borrowed("Unknown Error"))),
         }
     }
 
@@ -213,26 +147,19 @@ impl Iconv {
     ) -> Result<(), IconvError> {
         let mut src_index = 0;
         let mut dst_index = start_index;
+        dst.resize(start_index + src.len(), 0);
         loop {
             match self.convert_raw(&src[src_index..], &mut dst[dst_index..]) {
                 Ok(written) => {
-                    let new_length = written + dst_index;
-                    dst.truncate(new_length);
+                    dst.truncate(dst_index + written);
                     return Ok(());
                 }
-                Err(IconvError::InsufficientOutBuffer(left_index, wrote_index)) => {
-                    let room = ((src.len() - left_index) * 2) + 10;
-                    dst.reserve(room);
-                    unsafe {
-                        dst.set_len(room + dst_index);
-                    }
-                    src_index = left_index;
-                    dst_index = wrote_index;
-                    continue;
+                Err(IconvError::InsufficientOutBuffer(read, written)) => {
+                    src_index += read;
+                    dst_index += written;
+                    dst.resize(dst.len() + dst.len().max(16), 0);
                 }
-                err => {
-                    return err.and(Ok(()));
-                }
+                Err(error) => return Err(error),
             }
         }
     }
@@ -241,7 +168,7 @@ impl Iconv {
 impl Drop for Iconv {
     fn drop(&mut self) {
         unsafe {
-            if raw::iconv_close(self.iconv) == -1 {
+            if iconv_close(self.iconv) == -1 {
                 info!("Error on disposing iconv descriptor: {}", errno());
             }
         }
