@@ -1,0 +1,13 @@
+[package]
+name = "transliteration-comparison"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+current = { package = "text-transliterate", path = "../.." }
+baseline = { package = "text-transliterate", git = "https://github.com/DavidBM/text-transliterate-rust", rev = "c992b6fbb45556931a7a348037869cd6d257af4a" }
+any_ascii = "=0.3.3"
+deunicode = "=1.6.2"
+disarm = "=0.19.0"
+unidecode = "=0.3.0"

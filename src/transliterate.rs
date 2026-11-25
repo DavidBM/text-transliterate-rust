@@ -5,10 +5,14 @@ use std::fmt;
 #[rustfmt::skip]
 #[path = "generated_glibc.rs"]
 mod glibc;
-#[cfg(feature = "script-data")]
+#[cfg(all(feature = "script-data", not(feature = "all-scripts")))]
 #[rustfmt::skip]
 #[path = "generated_scripts.rs"]
 mod scripts;
+#[cfg(feature = "all-scripts")]
+#[rustfmt::skip]
+#[path = "generated_scalars.rs"]
+mod scalars;
 
 #[derive(Clone, Copy, Debug)]
 struct RuleTable {
@@ -54,7 +58,8 @@ impl RuleTable {
     }
 
     fn sequence(&self, first: char, text: &str) -> Option<(&'static str, &'static str)> {
-        if self.sequences.is_empty() {
+        let (last, _) = self.sequences.last()?;
+        if last.as_bytes()[0] < text.as_bytes()[0] {
             return None;
         }
         let offset = self
@@ -74,7 +79,48 @@ impl RuleTable {
     }
 }
 
-#[cfg(feature = "script-data")]
+#[cfg(feature = "all-scripts")]
+#[inline]
+fn packed_scalar(key: usize) -> &'static [u8] {
+    if key < scalars::DIRECT_LIMIT {
+        let offset = key * 8;
+        &scalars::PREFIX[offset..offset + 8]
+    } else {
+        let at = (key >> 6) * 2;
+        let page = u16::from_le_bytes([scalars::PAGES[at], scalars::PAGES[at + 1]]);
+        let offset = (usize::from(page) * 64 + (key & 63)) * 8;
+        &scalars::BLOCKS[offset..offset + 8]
+    }
+}
+
+#[cfg(feature = "all-scripts")]
+fn long_replacement(packed: &[u8]) -> Option<&'static str> {
+    let index = usize::from(u16::from_le_bytes([packed[0], packed[1]]));
+    (index != 0).then(|| scalars::OUTPUTS[index])
+}
+
+#[cfg(feature = "all-scripts")]
+#[inline]
+fn direct_scalar(scalar: char) -> Option<&'static str> {
+    let packed = packed_scalar(scalar as usize);
+    let length = packed[7] as usize;
+    if length <= 7 {
+        Some(std::str::from_utf8(&packed[..length]).expect("ASCII table"))
+    } else {
+        long_replacement(packed)
+    }
+}
+
+#[cfg(feature = "all-scripts")]
+fn supplemental(scalar: char) -> Option<&'static str> {
+    if glibc::BASE.scalar(scalar).is_some_and(str::is_ascii) {
+        scalars::SHADOWED.scalar(scalar)
+    } else {
+        direct_scalar(scalar)
+    }
+}
+
+#[cfg(all(feature = "script-data", not(feature = "all-scripts")))]
 fn supplemental(scalar: char) -> Option<&'static str> {
     let scalar_value = u32::from(scalar);
     let position = scripts::RANGES.partition_point(|&(first, _, _)| first <= scalar_value);
@@ -196,7 +242,14 @@ impl Transliterator {
         if text.is_ascii() {
             return Cow::Borrowed(text);
         }
-        let mut output = String::with_capacity(text.len());
+        // A small allowance avoids reallocating after a short expansion.
+        let padding = if cfg!(feature = "all-scripts") && self.profile.is_none() && text.len() < 128
+        {
+            16
+        } else {
+            0
+        };
+        let mut output = String::with_capacity(text.len() + padding);
         self.append(text, &mut output);
         Cow::Owned(output)
     }
@@ -218,6 +271,15 @@ impl Transliterator {
     }
 
     fn append(&self, mut text: &str, output: &mut String) {
+        #[cfg(feature = "all-scripts")]
+        if self.profile.is_none() && glibc::BASE.sequences.is_empty() {
+            if text.len() < 128 {
+                self.append_default::<128>(text, output);
+            } else {
+                self.append_default::<512>(text, output);
+            }
+            return;
+        }
         let check_ascii_prefix =
             self.profile.is_some_and(RuleTable::has_ascii_prefix) || glibc::BASE.has_ascii_prefix();
         while let Some(first) = text.chars().next() {
@@ -254,17 +316,108 @@ impl Transliterator {
             if first.is_ascii() {
                 output.push(first);
             } else {
-                let glibc = self.glibc_scalar(first);
-                let direct = glibc.filter(|value| value.is_ascii());
-                if let Some(value) = direct.or_else(|| supplemental(first)) {
-                    output.push_str(value);
-                } else if !glibc.is_some_and(|candidate| self.append_replacement(candidate, output))
-                    && self.unmapped == Unmapped::Replace
-                {
-                    output.push('?');
-                }
+                self.append_scalar(first, output);
             }
             text = &text[first.len_utf8()..];
+        }
+    }
+
+    #[cfg(feature = "all-scripts")]
+    fn append_default<const CHUNK_SIZE: usize>(&self, text: &str, output: &mut String) {
+        const ASCII_HIGH_BITS: u64 = 0x8080_8080_8080_8080;
+        // Flush only the bytes that belong to the result. This amortizes
+        // UTF-8 validation and growth of the caller's String.
+        let mut bytes = text.as_bytes();
+        let mut chunk = [0; CHUNK_SIZE];
+        let mut used = 0;
+        while let Some(&first) = bytes.first() {
+            if first.is_ascii() {
+                if let Some(word) = bytes.first_chunk::<8>() {
+                    let non_ascii = u64::from_le_bytes(*word) & ASCII_HIGH_BITS;
+                    let count = (non_ascii.trailing_zeros() / 8) as usize;
+                    // The speculative tail is outside `used` and never flushed.
+                    chunk[used..used + 8].copy_from_slice(word);
+                    used += count;
+                    bytes = &bytes[count..];
+                } else {
+                    let count = bytes
+                        .iter()
+                        .position(|byte| !byte.is_ascii())
+                        .unwrap_or(bytes.len());
+                    chunk[used..used + count].copy_from_slice(&bytes[..count]);
+                    used += count;
+                    bytes = &bytes[count..];
+                }
+            } else {
+                // A str always starts each iteration on a UTF-8 boundary.
+                let (scalar, width) = match bytes {
+                    [a, b, ..] if *a < 0xe0 => (((a & 31) as usize) << 6 | (b & 63) as usize, 2),
+                    [a, b, c, ..] if *a < 0xf0 => (
+                        ((a & 15) as usize) << 12 | ((b & 63) as usize) << 6 | (c & 63) as usize,
+                        3,
+                    ),
+                    [a, b, c, d, ..] => (
+                        ((a & 7) as usize) << 18
+                            | ((b & 63) as usize) << 12
+                            | ((c & 63) as usize) << 6
+                            | (d & 63) as usize,
+                        4,
+                    ),
+                    _ => unreachable!("valid UTF-8"),
+                };
+                bytes = &bytes[width..];
+                let packed = packed_scalar(scalar);
+                let length = packed[7] as usize;
+                if length <= 7 {
+                    chunk[used..used + 8].copy_from_slice(packed);
+                    used += length;
+                } else {
+                    flush_ascii(output, &chunk[..used]);
+                    used = 0;
+                    if let Some(value) = long_replacement(packed) {
+                        output.push_str(value);
+                    } else {
+                        let scalar = char::from_u32(scalar as u32).expect("valid UTF-8");
+                        self.append_indirect(glibc::BASE.scalar(scalar), output);
+                    }
+                }
+            }
+            if used > chunk.len() - 8 {
+                flush_ascii(output, &chunk[..used]);
+                used = 0;
+            }
+        }
+        flush_ascii(output, &chunk[..used]);
+    }
+
+    fn append_scalar(&self, scalar: char, output: &mut String) {
+        let local = self.profile.and_then(|table| table.scalar(scalar));
+        #[cfg(feature = "all-scripts")]
+        if local.is_none() {
+            if let Some(replacement) = direct_scalar(scalar) {
+                output.push_str(replacement);
+            } else {
+                self.append_indirect(glibc::BASE.scalar(scalar), output);
+            }
+            return;
+        }
+        let glibc = local.or_else(|| glibc::BASE.scalar(scalar));
+        if let Some(value) = glibc
+            .filter(|value| value.is_ascii())
+            .or_else(|| supplemental(scalar))
+        {
+            output.push_str(value);
+        } else {
+            self.append_indirect(glibc, output);
+        }
+    }
+
+    #[cold]
+    fn append_indirect(&self, candidate: Option<&str>, output: &mut String) {
+        if !candidate.is_some_and(|candidate| self.append_replacement(candidate, output))
+            && self.unmapped == Unmapped::Replace
+        {
+            output.push('?');
         }
     }
 
@@ -290,6 +443,11 @@ impl Transliterator {
         }
         true
     }
+}
+
+#[cfg(feature = "all-scripts")]
+fn flush_ascii(output: &mut String, chunk: &[u8]) {
+    output.push_str(std::str::from_utf8(chunk).expect("transliteration tables contain ASCII"));
 }
 
 /// Compatibility entry point for callers migrating from the original API.

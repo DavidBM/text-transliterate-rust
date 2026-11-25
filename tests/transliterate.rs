@@ -21,6 +21,19 @@ fn appends_and_reuses_an_output_buffer() {
     assert_eq!(output.capacity(), capacity);
 }
 
+#[cfg(feature = "all-scripts")]
+#[test]
+fn packed_output_handles_chunk_boundaries_and_long_replacements() {
+    let neutral = Transliterator::default();
+    let text = "1234567ä你好🚀\u{0308}\u{10ffff}abc".repeat(96);
+    let expected = "1234567aNiHao:rocket:?abc".repeat(96);
+    assert_eq!(neutral.transliterate(&text), expected);
+
+    let mut appended = String::from("prefix:");
+    neutral.transliterate_into(&text, &mut appended);
+    assert_eq!(&appended[7..], expected);
+}
+
 #[test]
 fn handles_invalid_locales_and_unmapped_characters() {
     assert_eq!(

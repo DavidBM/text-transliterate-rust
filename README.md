@@ -64,6 +64,24 @@ lack direct glibc ASCII mappings. It supports text such as `Привет` to `Pr
 representations or need context, such as choosing a reading for Han characters.
 The output is an ASCII approximation for search, slugs, and legacy systems.
 
+## Performance comparison
+
+The default build uses a packed lookup for the neutral locale. The benchmark
+compares the public `transliterate` API with the previous engine, AnyAscii,
+deunicode, Unidecode, and disarm. It prints input MiB/s and whether each library
+produced the same bytes as the previous engine. Use matching rows to compare
+conversion speed for equivalent output.
+
+```sh
+cargo run --release --locked --manifest-path benchmarks/compare/Cargo.toml
+SHORT=1 cargo run --release --locked --manifest-path benchmarks/compare/Cargo.toml
+VERIFY=1 cargo run --release --locked --manifest-path benchmarks/compare/Cargo.toml
+```
+
+The first run uses repeated samples of about 32 KiB. The second uses the
+individual phrases. The last checks every Unicode scalar against the previous
+engine through both output APIs, across all distinct locale profiles.
+
 ## Upgrading from 2.x
 
 `TextTransliterate::new().transliterate(text, locale)` still returns an owned
