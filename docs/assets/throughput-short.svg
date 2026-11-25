@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 366" role="img" aria-labelledby="title desc">
+  <title id="title">Short-phrase throughput</title>
+  <desc id="desc">Paired bars for five samples with identical ASCII output, measured in decimal megabytes of input per second.</desc>
+  <rect width="800" height="366" rx="20" fill="#10161e"/>
+  <rect x="0.5" y="0.5" width="799" height="365" rx="19.5" fill="none" stroke="#354453"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+    <text x="28" y="42" fill="#f6f9fc" font-size="26" font-weight="700">Short-phrase throughput</text>
+    <text x="29" y="69" fill="#b7c7d6" font-size="16">One phrase per call · Release build</text>
+    <rect x="486" y="35" width="12" height="12" rx="3" fill="#64e9db"/>
+    <text x="506" y="46" fill="#f6f9fc" font-size="16">text-transliterate</text>
+    <rect x="667" y="35" width="12" height="12" rx="3" fill="#ffa872"/>
+    <text x="687" y="46" fill="#f6f9fc" font-size="16">AnyAscii</text>
+    <path d="M132 91v230" stroke="#334251" stroke-width="1"/>
+    <text x="132" y="343" fill="#b7c7d6" font-size="14" text-anchor="middle">0</text>
+    <path d="M323.667 91v230" stroke="#334251" stroke-width="1"/>
+    <text x="323.667" y="343" fill="#b7c7d6" font-size="14" text-anchor="middle">500</text>
+    <path d="M515.333 91v230" stroke="#334251" stroke-width="1"/>
+    <text x="515.333" y="343" fill="#b7c7d6" font-size="14" text-anchor="middle">1,000</text>
+    <path d="M707 91v230" stroke="#334251" stroke-width="1"/>
+    <text x="707" y="343" fill="#b7c7d6" font-size="14" text-anchor="middle">1,500</text>
+    <text x="765" y="343" fill="#b7c7d6" font-size="14" text-anchor="end">MB/s</text>
+    <text x="29" y="122" fill="#f6f9fc" font-size="17" font-weight="600">Latin</text>
+    <rect x="132" y="100" width="553.5" height="13" rx="3" fill="#64e9db"/>
+    <text x="693.5" y="111" fill="#f6f9fc" font-size="14">1,444</text>
+    <rect x="132" y="118" width="309.7" height="13" rx="3" fill="#ffa872"/>
+    <text x="449.7" y="129" fill="#f6f9fc" font-size="14">808</text>
+    <text x="29" y="167" fill="#f6f9fc" font-size="17" font-weight="600">Cyrillic</text>
+    <rect x="132" y="145" width="413.6" height="13" rx="3" fill="#64e9db"/>
+    <text x="553.6" y="156" fill="#f6f9fc" font-size="14">1,079</text>
+    <rect x="132" y="163" width="157.6" height="13" rx="3" fill="#ffa872"/>
+    <text x="297.6" y="174" fill="#f6f9fc" font-size="14">411</text>
+    <text x="29" y="212" fill="#f6f9fc" font-size="17" font-weight="600">Han</text>
+    <rect x="132" y="190" width="407.5" height="13" rx="3" fill="#64e9db"/>
+    <text x="547.5" y="201" fill="#f6f9fc" font-size="14">1,063</text>
+    <rect x="132" y="208" width="156.8" height="13" rx="3" fill="#ffa872"/>
+    <text x="296.8" y="219" fill="#f6f9fc" font-size="14">409</text>
+    <text x="29" y="257" fill="#f6f9fc" font-size="17" font-weight="600">Kana</text>
+    <rect x="132" y="235" width="547.8" height="13" rx="3" fill="#64e9db"/>
+    <text x="687.8" y="246" fill="#f6f9fc" font-size="14">1,429</text>
+    <rect x="132" y="253" width="191.3" height="13" rx="3" fill="#ffa872"/>
+    <text x="331.3" y="264" fill="#f6f9fc" font-size="14">499</text>
+    <text x="29" y="302" fill="#f6f9fc" font-size="17" font-weight="600">Mixed</text>
+    <rect x="132" y="280" width="451.6" height="13" rx="3" fill="#64e9db"/>
+    <text x="591.6" y="291" fill="#f6f9fc" font-size="14">1,178</text>
+    <rect x="132" y="298" width="181.7" height="13" rx="3" fill="#ffa872"/>
+    <text x="321.7" y="309" fill="#f6f9fc" font-size="14">474</text>
+  </g>
+</svg>

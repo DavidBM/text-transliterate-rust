@@ -1,6 +1,6 @@
-use std::borrow::Cow;
-use std::error::Error;
-use std::fmt;
+use alloc::borrow::Cow;
+use alloc::string::String;
+use core::{error::Error, fmt, str};
 
 #[rustfmt::skip]
 #[path = "generated_glibc.rs"]
@@ -101,7 +101,7 @@ fn direct_scalar(scalar: char) -> Option<&'static str> {
     let packed = packed_scalar(scalar as usize);
     let length = packed[7] as usize;
     if length <= 7 {
-        Some(std::str::from_utf8(&packed[..length]).expect("ASCII table"))
+        Some(str::from_utf8(&packed[..length]).expect("ASCII table"))
     } else {
         long_replacement(packed)
     }
@@ -163,6 +163,61 @@ impl fmt::Display for TransliterationError {
 
 impl Error for TransliterationError {}
 
+/// The first unmapped input character in a strict conversion.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct UnmappedCharacter {
+    /// The source Unicode scalar.
+    pub character: char,
+    /// The character's byte offset in the original UTF-8 input.
+    pub byte_offset: usize,
+}
+
+impl fmt::Display for UnmappedCharacter {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "unmapped character {:?} at byte {}",
+            self.character, self.byte_offset
+        )
+    }
+}
+
+impl Error for UnmappedCharacter {}
+
+/// A custom rule failed validation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CustomRuleError {
+    /// This rule would consume no input.
+    EmptyInput(usize),
+    /// This rule's replacement contains non-ASCII text.
+    NonAsciiOutput(usize),
+}
+
+impl fmt::Display for CustomRuleError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyInput(index) => write!(formatter, "custom rule {index} has empty input"),
+            Self::NonAsciiOutput(index) => {
+                write!(formatter, "custom rule {index} has non-ASCII output")
+            }
+        }
+    }
+}
+
+impl Error for CustomRuleError {}
+
+#[derive(Debug)]
+enum ConversionError {
+    Unmapped(UnmappedCharacter),
+    Write(fmt::Error),
+}
+
+impl From<fmt::Error> for ConversionError {
+    fn from(error: fmt::Error) -> Self {
+        Self::Write(error)
+    }
+}
+
 /// The treatment of characters without a mapping to ASCII.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Unmapped {
@@ -183,6 +238,11 @@ pub enum Unmapped {
 /// ```
 pub fn transliterate(text: &str) -> Cow<'_, str> {
     Transliterator::default().transliterate(text)
+}
+
+/// Transliterate with the neutral locale and report the first unmapped scalar.
+pub fn try_transliterate(text: &str) -> Result<Cow<'_, str>, UnmappedCharacter> {
+    Transliterator::default().try_transliterate(text)
 }
 
 /// A reusable Unicode-to-ASCII transliterator with locale-specific rules.
@@ -235,8 +295,8 @@ impl Transliterator {
                 length += 1;
             }
         }
-        let normalized = std::str::from_utf8(&buffer[..length])
-            .map_err(|_| TransliterationError::UnknownLocale)?;
+        let normalized =
+            str::from_utf8(&buffer[..length]).map_err(|_| TransliterationError::UnknownLocale)?;
         Ok(Self {
             profile: glibc::profile(normalized)?,
             unmapped: Unmapped::Replace,
@@ -250,10 +310,67 @@ impl Transliterator {
         self
     }
 
+    /// Apply immutable caller-owned rules before bundled rules at each position.
+    ///
+    /// The longest input match wins. Equal matches use the first rule. An empty
+    /// ASCII replacement deletes the match. Rule errors report a zero-based index.
+    pub fn with_rules<'rules>(
+        self,
+        rules: &'rules [(&'rules str, &'rules str)],
+    ) -> Result<CustomTransliterator<'rules>, CustomRuleError> {
+        for (index, (input, output)) in rules.iter().enumerate() {
+            if input.is_empty() {
+                return Err(CustomRuleError::EmptyInput(index));
+            }
+            if !output.is_ascii() {
+                return Err(CustomRuleError::NonAsciiOutput(index));
+            }
+        }
+        Ok(CustomTransliterator { base: self, rules })
+    }
+
     /// Transliterate `text`, borrowing it when it is already ASCII.
     pub fn transliterate<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        self.convert::<false>(text, &[])
+            .expect("writing to a String is infallible")
+    }
+
+    /// Transliterate and report the first unmapped scalar with its byte offset.
+    ///
+    /// This check applies regardless of the configured fallback policy.
+    pub fn try_transliterate<'a>(&self, text: &'a str) -> Result<Cow<'a, str>, UnmappedCharacter> {
+        self.convert_strict(text, &[])
+    }
+
+    /// Append a transliteration to an existing buffer.
+    pub fn transliterate_into(&self, text: &str, output: &mut String) {
         if text.is_ascii() {
-            return Cow::Borrowed(text);
+            output.push_str(text);
+        } else {
+            output.reserve(text.len());
+            self.append::<false>(text, output, &[])
+                .expect("writing to a String is infallible");
+        }
+    }
+
+    /// Write directly to a sink without allocating an intermediate string.
+    ///
+    /// If the sink returns an error, any output it already accepted remains.
+    pub fn write_transliteration(
+        &self,
+        text: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> fmt::Result {
+        self.write_with_rules(text, output, &[])
+    }
+
+    fn convert<'a, const STRICT: bool>(
+        &self,
+        text: &'a str,
+        rules: &[(&str, &str)],
+    ) -> Result<Cow<'a, str>, ConversionError> {
+        if rules.is_empty() && text.is_ascii() {
+            return Ok(Cow::Borrowed(text));
         }
         // A small allowance avoids reallocating after a short expansion.
         let padding = if cfg!(feature = "all-scripts") && self.profile.is_none() && text.len() < 128
@@ -263,17 +380,37 @@ impl Transliterator {
             0
         };
         let mut output = String::with_capacity(text.len() + padding);
-        self.append(text, &mut output);
-        Cow::Owned(output)
+        self.append::<STRICT>(text, &mut output, rules)?;
+        Ok(Cow::Owned(output))
     }
 
-    /// Append a transliteration to an existing buffer.
-    pub fn transliterate_into(&self, text: &str, output: &mut String) {
-        if text.is_ascii() {
-            output.push_str(text);
-        } else {
-            output.reserve(text.len());
-            self.append(text, output);
+    fn convert_strict<'a>(
+        &self,
+        text: &'a str,
+        rules: &[(&str, &str)],
+    ) -> Result<Cow<'a, str>, UnmappedCharacter> {
+        match self.convert::<true>(text, rules) {
+            Ok(output) => Ok(output),
+            Err(ConversionError::Unmapped(error)) => Err(error),
+            Err(ConversionError::Write(_)) => unreachable!("writing to a String is infallible"),
+        }
+    }
+
+    fn write_with_rules(
+        &self,
+        text: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+        rules: &[(&str, &str)],
+    ) -> fmt::Result {
+        if rules.is_empty() && text.is_ascii() {
+            return output.write_str(text);
+        }
+        match self.append::<false>(text, output, rules) {
+            Ok(()) => Ok(()),
+            Err(ConversionError::Write(error)) => Err(error),
+            Err(ConversionError::Unmapped(_)) => {
+                unreachable!("the fallback handles unmapped input")
+            }
         }
     }
 
@@ -283,22 +420,34 @@ impl Transliterator {
             .or_else(|| glibc::BASE.scalar(scalar))
     }
 
-    fn append(&self, mut text: &str, output: &mut String) {
+    fn append<const STRICT: bool>(
+        &self,
+        mut text: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+        rules: &[(&str, &str)],
+    ) -> Result<(), ConversionError> {
         #[cfg(feature = "all-scripts")]
-        if self.profile.is_none() && glibc::BASE.sequences.is_empty() {
+        if !STRICT && rules.is_empty() && self.profile.is_none() && glibc::BASE.sequences.is_empty()
+        {
             if text.len() < 128 {
-                self.append_default::<128>(text, output);
+                self.append_default::<128>(text, output)?;
             } else {
-                self.append_default::<512>(text, output);
+                self.append_default::<512>(text, output)?;
             }
-            return;
+            return Ok(());
         }
+        let input_len = text.len();
         let local_starts = self.profile.map_or(&[][..], |table| table.ascii_starts);
         while let Some(first) = text.chars().next() {
-            if first.is_ascii() {
+            if let Some((input, replacement)) = matching_rule(rules, text) {
+                output.write_str(replacement)?;
+                text = &text[input.len()..];
+                continue;
+            }
+            if rules.is_empty() && first.is_ascii() {
                 let run = text.bytes().take_while(u8::is_ascii).count();
                 if run == text.len() {
-                    output.push_str(text);
+                    output.write_str(text)?;
                     break;
                 }
                 // A decomposed rule can start on the final ASCII character,
@@ -307,7 +456,7 @@ impl Transliterator {
                 let starts_sequence = local_starts.contains(&final_ascii)
                     || glibc::BASE.ascii_starts.contains(&final_ascii);
                 let copy = run - usize::from(starts_sequence);
-                output.push_str(&text[..copy]);
+                output.write_str(&text[..copy])?;
                 text = &text[copy..];
                 if copy == run {
                     continue;
@@ -323,22 +472,33 @@ impl Transliterator {
                 .and_then(|table| table.sequence(first, text))
                 .or_else(|| glibc::BASE.sequence(first, text));
             if let Some((source, replacement)) = sequence {
-                if self.append_replacement(replacement, output) {
+                if self.append_replacement(replacement, output)? {
                     text = &text[source.len()..];
                     continue;
                 }
             }
             if first.is_ascii() {
-                output.push(first);
-            } else {
-                self.append_scalar(first, output);
+                output.write_char(first)?;
+            } else if !self.append_scalar(first, output)? {
+                if STRICT {
+                    return Err(ConversionError::Unmapped(UnmappedCharacter {
+                        character: first,
+                        byte_offset: input_len - text.len(),
+                    }));
+                }
+                self.write_unmapped(output)?;
             }
             text = &text[first.len_utf8()..];
         }
+        Ok(())
     }
 
     #[cfg(feature = "all-scripts")]
-    fn append_default<const CHUNK_SIZE: usize>(&self, mut text: &str, output: &mut String) {
+    fn append_default<const CHUNK_SIZE: usize>(
+        &self,
+        mut text: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> fmt::Result {
         let mut chunk = [0; CHUNK_SIZE];
         let mut used = 0;
         while let Some(&first) = text.as_bytes().first() {
@@ -365,81 +525,152 @@ impl Transliterator {
                     chunk[used..used + 8].copy_from_slice(packed);
                     used += length;
                 } else {
-                    flush_ascii(output, &chunk[..used]);
+                    flush_ascii(output, &chunk[..used])?;
                     used = 0;
                     if let Some(value) = long_replacement(packed) {
-                        output.push_str(value);
-                    } else {
-                        self.append_indirect(glibc::BASE.scalar(scalar), output);
+                        output.write_str(value)?;
+                    } else if !self.append_indirect(glibc::BASE.scalar(scalar), output)? {
+                        self.write_unmapped(output)?;
                     }
                 }
             }
             if used > chunk.len() - 8 {
-                flush_ascii(output, &chunk[..used]);
+                flush_ascii(output, &chunk[..used])?;
                 used = 0;
             }
         }
-        flush_ascii(output, &chunk[..used]);
+        flush_ascii(output, &chunk[..used])
     }
 
-    fn append_scalar(&self, scalar: char, output: &mut String) {
+    fn append_scalar(
+        &self,
+        scalar: char,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> Result<bool, fmt::Error> {
         let local = self.profile.and_then(|table| table.scalar(scalar));
         #[cfg(feature = "all-scripts")]
         if local.is_none() {
             if let Some(replacement) = direct_scalar(scalar) {
-                output.push_str(replacement);
+                output.write_str(replacement)?;
+                return Ok(true);
             } else {
-                self.append_indirect(glibc::BASE.scalar(scalar), output);
+                return self.append_indirect(glibc::BASE.scalar(scalar), output);
             }
-            return;
         }
         let glibc = local.or_else(|| glibc::BASE.scalar(scalar));
         if let Some(value) = glibc
             .filter(|value| value.is_ascii())
             .or_else(|| supplemental(scalar))
         {
-            output.push_str(value);
+            output.write_str(value)?;
+            Ok(true)
         } else {
-            self.append_indirect(glibc, output);
+            self.append_indirect(glibc, output)
         }
     }
 
     #[cold]
-    fn append_indirect(&self, candidate: Option<&str>, output: &mut String) {
-        if !candidate.is_some_and(|candidate| self.append_replacement(candidate, output))
-            && self.unmapped == Unmapped::Replace
-        {
-            output.push('?');
+    fn append_indirect(
+        &self,
+        candidate: Option<&str>,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> Result<bool, fmt::Error> {
+        match candidate {
+            Some(candidate) => self.append_replacement(candidate, output),
+            None => Ok(false),
         }
     }
 
-    fn append_replacement(&self, replacement: &str, output: &mut String) -> bool {
-        if replacement.is_ascii() {
-            output.push_str(replacement);
-            return true;
+    fn write_unmapped(&self, output: &mut (impl fmt::Write + ?Sized)) -> fmt::Result {
+        match self.unmapped {
+            Unmapped::Replace => output.write_char('?'),
+            Unmapped::Drop => Ok(()),
         }
-        let start = output.len();
+    }
+
+    fn append_replacement(
+        &self,
+        replacement: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> Result<bool, fmt::Error> {
+        if replacement.is_ascii() {
+            output.write_str(replacement)?;
+            return Ok(true);
+        }
+        // A sink cannot undo output. Resolve the whole candidate before
+        // writing it, just as the owned API treats a candidate atomically.
+        if replacement
+            .chars()
+            .any(|scalar| !scalar.is_ascii() && self.folded_scalar(scalar).is_none())
+        {
+            return Ok(false);
+        }
         for scalar in replacement.chars() {
             if scalar.is_ascii() {
-                output.push(scalar);
-            } else if let Some(value) = self
-                .glibc_scalar(scalar)
-                .filter(|value| value.is_ascii())
-                .or_else(|| supplemental(scalar))
-            {
-                output.push_str(value);
+                output.write_char(scalar)?;
             } else {
-                output.truncate(start);
-                return false;
+                let folded = self.folded_scalar(scalar).expect("validated candidate");
+                output.write_str(folded)?;
             }
         }
-        true
+        Ok(true)
+    }
+
+    fn folded_scalar(&self, scalar: char) -> Option<&'static str> {
+        self.glibc_scalar(scalar)
+            .filter(|value| value.is_ascii())
+            .or_else(|| supplemental(scalar))
     }
 }
 
+/// A reusable transliterator with validated rules borrowed from the caller.
+#[derive(Clone, Copy, Debug)]
+pub struct CustomTransliterator<'rules> {
+    base: Transliterator,
+    rules: &'rules [(&'rules str, &'rules str)],
+}
+
+impl CustomTransliterator<'_> {
+    /// Transliterate using the custom rules and the selected locale.
+    pub fn transliterate<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        self.base
+            .convert::<false>(text, self.rules)
+            .expect("writing to a String is infallible")
+    }
+
+    /// Transliterate and report the first unmapped input scalar.
+    pub fn try_transliterate<'a>(&self, text: &'a str) -> Result<Cow<'a, str>, UnmappedCharacter> {
+        self.base.convert_strict(text, self.rules)
+    }
+
+    /// Write a transliteration directly to a caller-owned sink.
+    pub fn write_transliteration(
+        &self,
+        text: &str,
+        output: &mut (impl fmt::Write + ?Sized),
+    ) -> fmt::Result {
+        self.base.write_with_rules(text, output, self.rules)
+    }
+}
+
+fn matching_rule<'rules>(
+    rules: &'rules [(&'rules str, &'rules str)],
+    text: &str,
+) -> Option<(&'rules str, &'rules str)> {
+    let mut matched = None;
+    let mut longest = 0;
+    for &(input, output) in rules {
+        if input.len() > longest && text.starts_with(input) {
+            matched = Some((input, output));
+            longest = input.len();
+        }
+    }
+    matched
+}
+
 #[cfg(feature = "all-scripts")]
-fn flush_ascii(output: &mut String, chunk: &[u8]) {
-    output.push_str(std::str::from_utf8(chunk).expect("transliteration tables contain ASCII"));
+fn flush_ascii(output: &mut (impl fmt::Write + ?Sized), chunk: &[u8]) -> fmt::Result {
+    output.write_str(str::from_utf8(chunk).expect("transliteration tables contain ASCII"))
 }
 
 /// Returns the length of an ASCII prefix and replaces the following bytes

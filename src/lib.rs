@@ -4,13 +4,18 @@
 //!
 //! The default build includes all locale and supplementary script data.
 //! Select a smaller build with Cargo features such as `de` or
-//! `script-cyrillic`. Use [Transliterator] to parse the locale once and
-//! optionally reuse an output buffer across calls.
+//! `script-cyrillic`. Use [Transliterator] to reuse a locale, write to a sink,
+//! or apply custom rules. Use [try_transliterate()] to reject unmapped input.
+//! This crate uses `core` and `alloc` and has no runtime dependencies.
 
+#![no_std]
 #![forbid(unsafe_code)]
+
+extern crate alloc;
 
 mod transliterate;
 
 pub use transliterate::{
-    transliterate, TextTransliterate, TransliterationError, Transliterator, Unmapped,
+    transliterate, try_transliterate, CustomRuleError, CustomTransliterator, TextTransliterate,
+    TransliterationError, Transliterator, Unmapped, UnmappedCharacter,
 };

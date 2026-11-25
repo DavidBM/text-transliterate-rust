@@ -20,6 +20,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test ${{ matrix.args }}
 
+  no-std:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabi
+      - run: cargo check --target thumbv7em-none-eabi --all-features
+      - run: cargo check --target thumbv7em-none-eabi --no-default-features
+
   generated-data:
     runs-on: ubuntu-latest
     steps:

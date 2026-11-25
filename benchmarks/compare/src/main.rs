@@ -87,6 +87,12 @@ fn verify_all_scalars() {
                 into[7..] == *expected,
                 "{locale}: U+{start:04X} append block differs"
             );
+            let mut written = String::from("prefix:");
+            next.write_transliteration(&text, &mut written).unwrap();
+            assert_eq!(
+                written, into,
+                "{locale}: U+{start:04X} writer block differs"
+            );
         }
         println!("{locale}: exact scalar parity");
     }
