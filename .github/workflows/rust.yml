@@ -1,0 +1,27 @@
+name: Rust
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        args:
+          - --all-features
+          - --no-default-features
+          - --no-default-features --features de
+          - --no-default-features --features ru
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test ${{ matrix.args }}
+
+  generated-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 tools/generate.py
+      - run: test -z "$(git status --porcelain -- Cargo.toml src)"

@@ -1,39 +1,80 @@
-# text-transliterate-rust
+# text-transliterate
 
-Prove of concept (AKA, Not ready for production) for text transliteration. It uses the OS iconv with //TRANSLITERATE//IGNORE for transforming character between locales. 
-
-The locale must be available in the OS. 
-
-### Same thread execution (not recommended)
-
-(you can see the tests for more results):
+Convert Unicode text to ASCII using embedded GNU libc locale rules and
+supplementary script mappings. The conversion runs in safe Rust and uses the
+same tables on every platform.
 
 ```rust
-		let tt = TextTransliterate::new();
-		let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-		if let Ok(result) = result {
-			assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-		}
+use text_transliterate::Transliterator;
+
+let german = Transliterator::new("de-DE")?;
+assert_eq!(german.transliterate("Grüße aus Köln"), "Gruesse aus Koeln");
+assert_eq!(german.transliterate("a\u{0308}"), "ae");
+
+let mut buffer = String::with_capacity(256);
+german.transliterate_into("Straße", &mut buffer);
+assert_eq!(buffer, "Strasse");
+# Ok::<(), text_transliterate::TransliterationError>(())
 ```
 
-For using the correct locale (for example, to transliterate German letter correctly) it must use the function `uselocale` from C. This changes the locale of the thread. For avoiding you can use the "off-thread" version, that creates a new thread for executing the `uselocale` and `iconv`
+Reuse a `Transliterator` to avoid resolving the locale on each call.
+`transliterate` borrows ASCII input and `transliterate_into` can reuse caller-owned
+capacity. `Transliterator::default()` uses the neutral locale. Use
+`with_unmapped(Unmapped::Drop)` to omit characters without a mapping. The default
+writes a question mark for each one.
 
-### off thread example (recommended)
+## Select your tables
 
-```rust
-        let mut tt = TextTransliterateOffThread::new();
-        let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-        }
+The default build includes all locale profiles and supplementary scripts.
+Use `default-features = false` to select only what you need.
+
+```toml
+[dependencies]
+text-transliterate = { version = "3", default-features = false, features = ["de", "ru"] }
 ```
 
-### Notes
+The shared glibc table is always available. Language features enable distinct
+locale overrides and any associated supplementary scripts. For example, `de`
+enables the German rules, `ru` enables Cyrillic romanization, and `ja` enables
+Japanese glibc rules plus the kana and Han tables. A request for an omitted
+locale override returns the required feature name.
 
-1) The test results can change between machines. Keep in mind that.
-2) The code depends of GNU libc
-3) There is a unsafe code that can create problems:
+You can also select scripts directly. The available features are `script-latin`,
+`script-cyrillic`, `script-greek`, `script-arabic`, `script-hebrew`, `script-han`,
+`script-kana`, `script-hangul`, `script-indic`, `script-southeast-asian`,
+`script-ethiopic`, `script-armenian`, `script-georgian`, `script-symbols`, and
+`script-other`. `all-scripts` enables every supplemental table.
 
-### License
+Locale names use glibc language and region identifiers. The API accepts names
+such as `de`, `de-CH`, `de_DE.UTF-8`, and `sr_RS@latin`. Locale selection matters.
+German maps `ä` to `ae`, and the neutral profile maps it to `a`.
 
-Apache-2.0/MIT
+## Coverage
+
+The bundled glibc 2.43 data provides shared folding rules and locale-specific
+overrides. It includes ordered replacements, deletion rules, and sequences
+such as Ukrainian `зг` to `zgh`. The generator resolves locale inheritance and
+chooses the first direct ASCII replacement. A non-ASCII replacement can be
+folded to ASCII when the characters it contains are covered by the enabled
+tables.
+
+AnyAscii provides supplementary per-character approximations for scripts that
+lack direct glibc ASCII mappings. It supports text such as `Привет` to `Privet`,
+`你好` to `NiHao`, and `かな` to `kana`. Scripts and characters can share
+representations or need context, such as choosing a reading for Han characters.
+The output is an ASCII approximation for search, slugs, and legacy systems.
+
+## Upgrading from 2.x
+
+`TextTransliterate::new().transliterate(text, locale)` still returns an owned
+String. The `off-thread` feature keeps the synchronous and asynchronous methods
+on `TextTransliterateOffThread` for applications that dispatch CPU work to a
+dedicated pool. Both entry points use the embedded engine. Error variants now
+describe locale selection, and output can differ from a host's glibc conversion
+when supplementary scripts are enabled.
+
+## Table sources and licensing
+
+The original Rust source is available under MIT or Apache-2.0. The pinned data,
+upstream notices, and regeneration instructions are included alongside it.
+[Table sources and licenses](data/source/README.md)

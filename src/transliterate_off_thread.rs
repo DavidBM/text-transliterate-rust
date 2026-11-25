@@ -1,7 +1,6 @@
 use crate::transliterate::{TextTransliterate, TransliterationError};
-use async_std::sync::{channel as async_channel, Receiver as AsyncReceiver, Sender as AsyncSender};
-use async_std::task::block_on;
-use crossbeam::{crossbeam_channel::bounded, crossbeam_channel::unbounded, Receiver, Sender};
+use async_channel::{bounded as async_channel, Receiver as AsyncReceiver, Sender as AsyncSender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use std::thread;
 
 #[derive(Debug)]
@@ -29,9 +28,9 @@ pub enum TransliterateFailure {
     ErrorCommunicationWithPool,
 }
 
-/// Transliterate from the chosen locale to ascii.
-/// This function will create another thread in order to isolate the
-/// locale set for iconv effects.
+/// Run conversions on a dedicated pool for applications that need to keep
+/// CPU work off their async executor.
+
 #[derive(Debug)]
 pub struct TextTransliterateOffThread {
     sender: Sender<TransliterateRequest>,
@@ -70,19 +69,14 @@ impl TextTransliterateOffThread {
                 match request {
                     TransliterateRequest::Die => break,
                     TransliterateRequest::Transliterate(request) => {
-                        match tt.transliterate(request.text, request.locale) {
-                            Ok(result) => match request.sender {
-                                MessageCallback::Async(sender) => {
-                                    block_on(async { sender.send(Ok(result)).await })
-                                }
-                                MessageCallback::Sync(sender) => sender.send(Ok(result)).unwrap(),
-                            },
-                            Err(error) => match request.sender {
-                                MessageCallback::Async(sender) => {
-                                    block_on(async { sender.send(Err(error)).await })
-                                }
-                                MessageCallback::Sync(sender) => sender.send(Err(error)).unwrap(),
-                            },
+                        let result = tt.transliterate(request.text, request.locale);
+                        match request.sender {
+                            MessageCallback::Async(sender) => {
+                                let _ = sender.send_blocking(result);
+                            }
+                            MessageCallback::Sync(sender) => {
+                                let _ = sender.send(result);
+                            }
                         }
                     }
                 }
@@ -116,9 +110,9 @@ impl TextTransliterateOffThread {
         let send_result =
             self.sender
                 .send(TransliterateRequest::Transliterate(TransliterationData {
-                    text: text,
+                    text,
                     sender: MessageCallback::Sync(sender),
-                    locale: locale,
+                    locale,
                 }));
 
         if send_result.is_err() {
@@ -156,9 +150,9 @@ impl TextTransliterateOffThread {
         let send_result =
             self.sender
                 .send(TransliterateRequest::Transliterate(TransliterationData {
-                    text: text.clone(),
+                    text,
                     sender: MessageCallback::Async(sender),
-                    locale: locale.clone(),
+                    locale,
                 }));
 
         if send_result.is_err() {
@@ -166,7 +160,7 @@ impl TextTransliterateOffThread {
             return Err(TransliterateFailure::ErrorCommunicationWithPool);
         }
 
-        if let Some(result) = receiver.recv().await {
+        if let Ok(result) = receiver.recv().await {
             match result {
                 Ok(text) => Ok(text),
                 Err(message) => Err(TransliterateFailure::TransliterationError(message)),
@@ -186,102 +180,31 @@ impl Drop for TextTransliterateOffThread {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    #[cfg(feature = "de")]
+    use futures_lite::future::block_on;
 
     #[test]
-    fn it_works() {
-        let mut tt: TextTransliterateOffThread = Default::default();
-        let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-        } else {
-            unreachable!();
-        }
+    fn uses_the_safe_engine_synchronously() {
+        let mut converter = TextTransliterateOffThread::default();
+        assert_eq!(
+            converter.transliterate("Straße", "en_US").unwrap(),
+            "Strasse"
+        );
     }
 
+    #[cfg(feature = "de")]
     #[test]
-    fn japanse_dont_crash() {
-        let mut tt: TextTransliterateOffThread = Default::default();
-        let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
-        } else {
-            unreachable!();
-        }
-    }
-
-    #[test]
-    fn chinese_dont_crash() {
-        let mut tt: TextTransliterateOffThread = Default::default();
-        let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("?????????", result);
-        } else {
-            unreachable!();
-        }
-    }
-
-    #[test]
-    fn coins() {
-        let mut tt: TextTransliterateOffThread = Default::default();
-        let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
-        if let Ok(result) = result {
-            assert_eq!("EUR GBP $ JPY", result);
-        } else {
-            unreachable!();
-        }
-    }
-
-    #[test]
-    fn it_works_async() {
+    fn uses_locale_rules_asynchronously() {
         block_on(async {
-            let mut tt: TextTransliterateOffThread = Default::default();
-            let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "de_DE.UTF-8");
-            if let Ok(result) = result {
-                assert_eq!("ue  ae  oe  ss  UE  AE  OE c n ? ?", result);
-            } else {
-                unreachable!();
-            }
-        });
-    }
-
-    #[test]
-    fn japanse_dont_crash_async() {
-        block_on(async {
-            let mut tt: TextTransliterateOffThread = Default::default();
-            let result = tt.transliterate("ü  ä  ö  ß  Ü  Ä  Ö ç ñ 的 😒", "ja_JP.UTF-8");
-            if let Ok(result) = result {
-                assert_eq!("u  a  o  ss  U  A  O c n ? ?", result);
-            } else {
-                unreachable!();
-            }
-        });
-    }
-
-    #[test]
-    fn chinese_dont_crash_async() {
-        block_on(async {
-            let mut tt: TextTransliterateOffThread = Default::default();
-            let result = tt.transliterate("ウェブ全体から検索", "zh_CN.UTF-8");
-            if let Ok(result) = result {
-                assert_eq!("?????????", result);
-            } else {
-                unreachable!();
-            }
-        });
-    }
-
-    #[test]
-    fn coins_async() {
-        block_on(async {
-            let mut tt: TextTransliterateOffThread = Default::default();
-            let result = tt.transliterate("€ £ $ ¥", "en_US.UTF-8");
-            if let Ok(result) = result {
-                assert_eq!("EUR GBP $ JPY", result);
-            } else {
-                unreachable!();
-            }
+            let mut converter = TextTransliterateOffThread::default();
+            assert_eq!(
+                converter
+                    .async_transliterate("Grüße", "de_DE")
+                    .await
+                    .unwrap(),
+                "Gruesse"
+            );
         });
     }
 }
