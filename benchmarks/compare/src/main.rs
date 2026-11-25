@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 fn current(input: &str) -> Cow<'_, str> {
-    current::Transliterator::default().transliterate(input)
+    current::transliterate(input)
 }
 fn baseline(input: &str) -> Cow<'_, str> {
     baseline::Transliterator::default().transliterate(input)

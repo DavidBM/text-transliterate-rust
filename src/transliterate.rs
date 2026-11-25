@@ -173,6 +173,18 @@ pub enum Unmapped {
     Drop,
 }
 
+/// Transliterate text to ASCII using the neutral locale.
+///
+/// Already-ASCII input is borrowed. Unmapped characters become question marks.
+/// Use [`Transliterator`] to select a locale or reuse an output buffer.
+///
+/// ```
+/// assert_eq!(text_transliterate::transliterate("Straße"), "Strasse");
+/// ```
+pub fn transliterate(text: &str) -> Cow<'_, str> {
+    Transliterator::default().transliterate(text)
+}
+
 /// A reusable Unicode-to-ASCII transliterator with locale-specific rules.
 ///
 /// Construct it once and reuse it across strings. It borrows ASCII input and

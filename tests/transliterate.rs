@@ -1,13 +1,20 @@
 use std::borrow::Cow;
-use text_transliterate::{TextTransliterate, TransliterationError, Transliterator, Unmapped};
+use text_transliterate::{
+    transliterate, TextTransliterate, TransliterationError, Transliterator, Unmapped,
+};
 
 #[test]
 fn borrowed_ascii_is_unchanged() {
     let input = "Hello, earth!\n\0";
     assert!(matches!(
-        Transliterator::default().transliterate(input),
+        transliterate(input),
         Cow::Borrowed(same) if same.as_ptr() == input.as_ptr()
     ));
+}
+
+#[test]
+fn pure_function_uses_neutral_rules() {
+    assert_eq!(transliterate("Straße, ä\u{10ffff}"), "Strasse, a?");
 }
 
 #[test]

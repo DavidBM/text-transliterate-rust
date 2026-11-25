@@ -1,5 +1,7 @@
 //! Fast, local transliteration from Unicode to ASCII with embedded locale rules.
 //!
+//! Use [transliterate()] for a synchronous conversion with the neutral locale.
+//!
 //! The default build includes all locale and supplementary script data.
 //! Select a smaller build with Cargo features such as `de` or
 //! `script-cyrillic`. Use [Transliterator] to parse the locale once and
@@ -8,9 +10,7 @@
 #![forbid(unsafe_code)]
 
 mod transliterate;
-#[cfg(feature = "off-thread")]
-mod transliterate_off_thread;
 
-pub use transliterate::{TextTransliterate, TransliterationError, Transliterator, Unmapped};
-#[cfg(feature = "off-thread")]
-pub use transliterate_off_thread::{TextTransliterateOffThread, TransliterateFailure};
+pub use transliterate::{
+    transliterate, TextTransliterate, TransliterationError, Transliterator, Unmapped,
+};
