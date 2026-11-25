@@ -4,7 +4,7 @@ description = "Safe, locale-aware Unicode to ASCII transliteration with embedded
 license-file = "LICENSE"
 repository = "https://github.com/DavidBM/text-transliterate-rust"
 documentation = "https://docs.rs/text-transliterate"
-version = "3.0.0"
+version = "4.0.0"
 authors = ["David Bonet <webbonet@gmail.com>"]
 edition = "2021"
 
