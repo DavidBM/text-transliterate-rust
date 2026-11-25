@@ -5,6 +5,15 @@ supplementary script mappings. The conversion runs in safe Rust and uses the
 same tables on every platform.
 
 ```rust
+use text_transliterate::transliterate;
+
+assert_eq!(transliterate("Straße"), "Strasse");
+```
+
+The function runs synchronously and uses the neutral locale. Use
+`Transliterator` to choose a locale or reuse an output buffer.
+
+```rust
 use text_transliterate::Transliterator;
 
 let german = Transliterator::new("de-DE")?;
@@ -67,7 +76,7 @@ The output is an ASCII approximation for search, slugs, and legacy systems.
 ## Performance comparison
 
 The default build uses a packed lookup for the neutral locale. The benchmark
-compares the public `transliterate` API with the original v3 engine, the first
+compares the public `transliterate` function with the original v3 engine, the first
 packed implementation, AnyAscii, deunicode, Unidecode, and disarm. It prints
 input MiB/s and whether each library produced matching bytes. The German
 locale case compares the two packed implementations directly so the German
@@ -86,9 +95,7 @@ engine through both output APIs, across all distinct locale profiles.
 ## Upgrading from 2.x
 
 `TextTransliterate::new().transliterate(text, locale)` still returns an owned
-String. The `off-thread` feature keeps the synchronous and asynchronous methods
-on `TextTransliterateOffThread` for applications that dispatch CPU work to a
-dedicated pool. Both entry points use the embedded engine. Error variants now
+String. The off-thread API and Cargo feature have been removed. Error variants
 describe locale selection, and output can differ from a host's glibc conversion
 when supplementary scripts are enabled.
 
