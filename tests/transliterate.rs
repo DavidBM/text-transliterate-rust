@@ -1,6 +1,8 @@
 use std::borrow::Cow;
+use std::fmt;
 use text_transliterate::{
-    transliterate, TextTransliterate, TransliterationError, Transliterator, Unmapped,
+    transliterate, try_transliterate, CustomRuleError, TextTransliterate, TransliterationError,
+    Transliterator, Unmapped, UnmappedCharacter,
 };
 
 #[test]
@@ -15,6 +17,99 @@ fn borrowed_ascii_is_unchanged() {
 #[test]
 fn pure_function_uses_neutral_rules() {
     assert_eq!(transliterate("Straße, ä\u{10ffff}"), "Strasse, a?");
+}
+
+#[test]
+fn strict_conversion_distinguishes_deletions_from_missing_mappings() {
+    assert!(matches!(
+        try_transliterate("ASCII"),
+        Ok(Cow::Borrowed("ASCII"))
+    ));
+    assert_eq!(try_transliterate("Straße\u{0308}").unwrap(), "Strasse");
+    let error = UnmappedCharacter {
+        character: '\u{10ffff}',
+        byte_offset: "Straße\u{0308}".len(),
+    };
+    let input = "Straße\u{0308}\u{10ffff}\u{10fffe}";
+    assert_eq!(try_transliterate(input), Err(error));
+    assert_eq!(
+        Transliterator::default()
+            .with_unmapped(Unmapped::Drop)
+            .try_transliterate(input),
+        Err(error)
+    );
+}
+
+struct FixedBuffer {
+    bytes: [u8; 16],
+    len: usize,
+}
+
+impl fmt::Write for FixedBuffer {
+    fn write_str(&mut self, text: &str) -> fmt::Result {
+        let end = self.len + text.len();
+        self.bytes
+            .get_mut(self.len..end)
+            .ok_or(fmt::Error)?
+            .copy_from_slice(text.as_bytes());
+        self.len = end;
+        Ok(())
+    }
+}
+
+#[test]
+fn writing_accepts_a_fixed_buffer_and_propagates_sink_failure() {
+    let mut buffer = FixedBuffer {
+        bytes: [0; 16],
+        len: 0,
+    };
+    let neutral = Transliterator::default();
+    let sink: &mut dyn fmt::Write = &mut buffer;
+    neutral.write_transliteration("Straße", sink).unwrap();
+    assert_eq!(
+        neutral.write_transliteration("This fragment is too long", sink),
+        Err(fmt::Error)
+    );
+    assert_eq!(&buffer.bytes[..buffer.len], b"Strasse");
+}
+
+#[test]
+fn custom_rules_validate_match_priority_and_compose_with_output_apis() {
+    let neutral = Transliterator::default();
+    assert_eq!(
+        neutral
+            .with_rules(&[("ß", "ss"), ("", "empty")])
+            .unwrap_err(),
+        CustomRuleError::EmptyInput(1)
+    );
+    assert_eq!(
+        neutral.with_rules(&[("ß", "ä")]).unwrap_err(),
+        CustomRuleError::NonAsciiOutput(0)
+    );
+    let input = String::from("Brand™");
+    let replacement = String::from("Acme");
+    let rules = [
+        ("Brand", "brand"),
+        (&input, &replacement),
+        ("Brand™", "duplicate"),
+        ("-", ""),
+        ("Acme", "ACME"),
+    ];
+    let custom = neutral.with_rules(&rules).unwrap();
+    assert_eq!(custom.transliterate("Brand™-Straße"), "AcmeStrasse");
+    assert_eq!(custom.transliterate("Brand-Acme"), "brandACME");
+    assert_eq!(
+        custom.try_transliterate("Brand™\u{10ffff}"),
+        Err(UnmappedCharacter {
+            character: '\u{10ffff}',
+            byte_offset: input.len(),
+        })
+    );
+    let mut output = String::from("prefix ");
+    custom
+        .write_transliteration("Brand™-Straße", &mut output)
+        .unwrap();
+    assert_eq!(output, "prefix AcmeStrasse");
 }
 
 #[test]
@@ -39,6 +134,9 @@ fn packed_output_handles_chunk_boundaries_and_long_replacements() {
     let mut appended = String::from("prefix:");
     neutral.transliterate_into(&text, &mut appended);
     assert_eq!(&appended[7..], expected);
+    let mut written = String::from("prefix:");
+    neutral.write_transliteration(&text, &mut written).unwrap();
+    assert_eq!(written, appended);
 }
 
 #[cfg(feature = "all-scripts")]
@@ -106,6 +204,12 @@ fn locale_overrides_handle_composed_and_decomposed_german() {
     assert_eq!(
         german.transliterate("Das Ma\u{0308}dchen antwortet. x\u{0308} a\u{0308} Straße"),
         "Das Maedchen antwortet. x ae Strasse"
+    );
+    let rules = [("a\u{0308}", "custom")];
+    let custom = german.with_rules(&rules).unwrap();
+    assert_eq!(
+        custom.try_transliterate("a\u{0308} ä").unwrap(),
+        "custom ae"
     );
 }
 
