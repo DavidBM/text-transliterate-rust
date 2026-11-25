@@ -4,126 +4,147 @@ pub(super) static BASE: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_base.keys"),
     output: include_str!("generated/glibc_base.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(any(feature = "aa", feature = "am", feature = "byn", feature = "gez", feature = "om", feature = "sid", feature = "so", feature = "ssy", feature = "ti", feature = "tig", feature = "wal"))]
 pub(super) static AA_ER: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_aa_er.keys"),
     output: include_str!("generated/glibc_aa_er.values"),
     sequences: &[("ህአ", "h'e"), ("ህኡ", "h'u"), ("ህኢ", "h'i"), ("ህኤ", "h'E"), ("ህኦ", "h'o"), ("ህኧ", "h'ea"), ("ልአ", "l'e"), ("ልኡ", "l'u"), ("ልኢ", "l'i"), ("ልኤ", "l'E"), ("ልኦ", "l'o"), ("ልኧ", "l'ea"), ("ሕአ", "H'e"), ("ሕኡ", "H'u"), ("ሕኢ", "H'i"), ("ሕኤ", "H'E"), ("ሕኦ", "H'o"), ("ሕኧ", "H'ea"), ("ምአ", "m'e"), ("ምኡ", "m'u"), ("ምኢ", "m'i"), ("ምኤ", "m'E"), ("ምኦ", "m'o"), ("ምኧ", "m'ea"), ("ሥአ", "`s'e"), ("ሥኡ", "`s'u"), ("ሥኢ", "`s'i"), ("ሥኤ", "`s'E"), ("ሥኦ", "`s'o"), ("ሥኧ", "`s'ea"), ("ረዋ", "rWa"), ("ርአ", "r'e"), ("ርኡ", "r'u"), ("ርኢ", "r'i"), ("ርኤ", "r'E"), ("ርኦ", "r'o"), ("ርኧ", "r'ea"), ("ስአ", "s'e"), ("ስኡ", "s'u"), ("ስኢ", "s'i"), ("ስኤ", "s'E"), ("ስኦ", "s'o"), ("ስኧ", "s'ea"), ("ሽአ", "x'e"), ("ሽኡ", "x'u"), ("ሽኢ", "x'i"), ("ሽኤ", "x'E"), ("ሽኦ", "x'o"), ("ሽኧ", "x'ea"), ("ቅአ", "q'e"), ("ቅኡ", "q'u"), ("ቅኢ", "q'i"), ("ቅኤ", "q'E"), ("ቅኦ", "q'o"), ("ቅኧ", "q'ea"), ("ቍአ", "qW'e"), ("ቍኡ", "qW'u"), ("ቍኢ", "qW'i"), ("ቍኤ", "qW'E"), ("ቍኦ", "qW'o"), ("ቍኧ", "qW'ea"), ("ቕአ", "Q'e"), ("ቕኡ", "Q'u"), ("ቕኢ", "Q'i"), ("ቕኤ", "Q'E"), ("ቕኦ", "Q'o"), ("ቕኧ", "Q'ea"), ("ቝአ", "QW'e"), ("ቝኡ", "QW'u"), ("ቝኢ", "QW'i"), ("ቝኤ", "QW'E"), ("ቝኦ", "QW'o"), ("ቝኧ", "QW'ea"), ("ብአ", "b'e"), ("ብኡ", "b'u"), ("ብኢ", "b'i"), ("ብኤ", "b'E"), ("ብኦ", "b'o"), ("ብኧ", "b'ea"), ("ቭአ", "v'e"), ("ቭኡ", "v'u"), ("ቭኢ", "v'i"), ("ቭኤ", "v'E"), ("ቭኦ", "v'o"), ("ቭኧ", "v'ea"), ("ትአ", "t'e"), ("ትኡ", "t'u"), ("ትኢ", "t'i"), ("ትኤ", "t'E"), ("ትኦ", "t'o"), ("ትኧ", "t'ea"), ("ችአ", "c'e"), ("ችኡ", "c'u"), ("ችኢ", "c'i"), ("ችኤ", "c'E"), ("ችኦ", "c'o"), ("ችኧ", "c'ea"), ("ኅአ", "`h'e"), ("ኅኡ", "`h'u"), ("ኅኢ", "`h'i"), ("ኅኤ", "`h'E"), ("ኅኦ", "`h'o"), ("ኅኧ", "`h'ea"), ("ኍአ", "hW'e"), ("ኍኡ", "hW'u"), ("ኍኢ", "hW'i"), ("ኍኤ", "hW'E"), ("ኍኦ", "hW'o"), ("ኍኧ", "hW'ea"), ("ንአ", "n'e"), ("ንኡ", "n'u"), ("ንኢ", "n'i"), ("ንኤ", "n'E"), ("ንኦ", "n'o"), ("ንኧ", "n'ea"), ("ኝአ", "N'e"), ("ኝኡ", "N'u"), ("ኝኢ", "N'i"), ("ኝኤ", "N'E"), ("ኝኦ", "N'o"), ("ኝኧ", "N'ea"), ("ክአ", "k'e"), ("ክኡ", "k'u"), ("ክኢ", "k'i"), ("ክኤ", "k'E"), ("ክኦ", "k'o"), ("ክኧ", "k'ea"), ("ኵአ", "kW'e"), ("ኵኡ", "kW'u"), ("ኵኢ", "kW'i"), ("ኵኤ", "kW'E"), ("ኵኦ", "kW'o"), ("ኵኧ", "kW'ea"), ("ኽአ", "K'e"), ("ኽኡ", "K'u"), ("ኽኢ", "K'i"), ("ኽኤ", "K'E"), ("ኽኦ", "K'o"), ("ኽኧ", "K'ea"), ("ዅአ", "KW'e"), ("ዅኡ", "KW'u"), ("ዅኢ", "KW'i"), ("ዅኤ", "KW'E"), ("ዅኦ", "KW'o"), ("ዅኧ", "KW'ea"), ("ወዋ", "wWa"), ("ውአ", "w'e"), ("ውኡ", "w'u"), ("ውኢ", "w'i"), ("ውኤ", "w'E"), ("ውኦ", "w'o"), ("ውኧ", "w'ea"), ("ዝአ", "z'e"), ("ዝኡ", "z'u"), ("ዝኢ", "z'i"), ("ዝኤ", "z'E"), ("ዝኦ", "z'o"), ("ዝኧ", "z'ea"), ("ዥአ", "Z'e"), ("ዥኡ", "Z'u"), ("ዥኢ", "Z'i"), ("ዥኤ", "Z'E"), ("ዥኦ", "Z'o"), ("ዥኧ", "Z'ea"), ("ይአ", "y'e"), ("ይኡ", "y'u"), ("ይኢ", "y'i"), ("ይኤ", "y'E"), ("ይኦ", "y'o"), ("ይኧ", "y'ea"), ("ድአ", "d'e"), ("ድኡ", "d'u"), ("ድኢ", "d'i"), ("ድኤ", "d'E"), ("ድኦ", "d'o"), ("ድኧ", "d'ea"), ("ዽአ", "D'e"), ("ዽኡ", "D'u"), ("ዽኢ", "D'i"), ("ዽኤ", "D'E"), ("ዽኦ", "D'o"), ("ዽኧ", "D'ea"), ("ጅአ", "j'e"), ("ጅኡ", "j'u"), ("ጅኢ", "j'i"), ("ጅኤ", "j'E"), ("ጅኦ", "j'o"), ("ጅኧ", "j'ea"), ("ግአ", "g'e"), ("ግኡ", "g'u"), ("ግኢ", "g'i"), ("ግኤ", "g'E"), ("ግኦ", "g'o"), ("ግኧ", "g'ea"), ("ጕአ", "gW'e"), ("ጕኡ", "gW'u"), ("ጕኢ", "gW'i"), ("ጕኤ", "gW'E"), ("ጕኦ", "gW'o"), ("ጕኧ", "gW'ea"), ("ጝአ", "G'e"), ("ጝኡ", "G'u"), ("ጝኢ", "G'i"), ("ጝኤ", "G'E"), ("ጝኦ", "G'o"), ("ጝኧ", "G'ea"), ("ጥአ", "T'e"), ("ጥኡ", "T'u"), ("ጥኢ", "T'i"), ("ጥኤ", "T'E"), ("ጥኦ", "T'o"), ("ጥኧ", "T'ea"), ("ጭአ", "C'e"), ("ጭኡ", "C'u"), ("ጭኢ", "C'i"), ("ጭኤ", "C'E"), ("ጭኦ", "C'o"), ("ጭኧ", "C'ea"), ("ጵአ", "P'e"), ("ጵኡ", "P'u"), ("ጵኢ", "P'i"), ("ጵኤ", "P'E"), ("ጵኦ", "P'o"), ("ጵኧ", "P'ea"), ("ጽአ", "S'e"), ("ጽኡ", "S'u"), ("ጽኢ", "S'i"), ("ጽኤ", "S'E"), ("ጽኦ", "S'o"), ("ጽኧ", "S'ea"), ("ፅአ", "`S'e"), ("ፅኡ", "`S'u"), ("ፅኢ", "`S'i"), ("ፅኤ", "`S'E"), ("ፅኦ", "`S'o"), ("ፅኧ", "`S'ea"), ("ፍአ", "f'e"), ("ፍኡ", "f'u"), ("ፍኢ", "f'i"), ("ፍኤ", "f'E"), ("ፍኦ", "f'o"), ("ፍኧ", "f'ea"), ("ፕአ", "p'e"), ("ፕኡ", "p'u"), ("ፕኢ", "p'i"), ("ፕኤ", "p'E"), ("ፕኦ", "p'o"), ("ፕኧ", "p'ea")],
+    ascii_starts: &[],
 };
 #[cfg(feature = "az")]
 pub(super) static AZ_AZ: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_az_az.keys"),
     output: include_str!("generated/glibc_az_az.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(any(feature = "be", feature = "ckb", feature = "dsb", feature = "hak", feature = "hsb", feature = "lzh", feature = "mfe", feature = "mnw", feature = "my", feature = "nan", feature = "nso", feature = "ps", feature = "sr", feature = "ug"))]
 pub(super) static BE_BY_LATIN: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_be_by_latin.keys"),
     output: include_str!("generated/glibc_be_by_latin.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(any(feature = "da", feature = "fo", feature = "kl", feature = "nb", feature = "nn", feature = "sv"))]
 pub(super) static DA_DK: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_da_dk.keys"),
     output: include_str!("generated/glibc_da_dk.values"),
     sequences: &[("Ä", "AE"), ("Å", "AA"), ("Ö", "OE"), ("ä", "ae"), ("å", "aa"), ("ö", "oe")],
+    ascii_starts: &[65, 79, 97, 111],
 };
 #[cfg(any(feature = "de", feature = "wae"))]
 pub(super) static DE_AT: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_de_at.keys"),
     output: include_str!("generated/glibc_de_at.values"),
     sequences: &[("Ä", "AE"), ("Å", "AA"), ("Ö", "OE"), ("Ü", "UE"), ("ä", "ae"), ("å", "aa"), ("ö", "oe"), ("ü", "ue")],
+    ascii_starts: &[65, 79, 85, 97, 111, 117],
 };
 #[cfg(feature = "hr")]
 pub(super) static HR_HR: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_hr_hr.keys"),
     output: include_str!("generated/glibc_hr_hr.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "hu")]
 pub(super) static HU_HU: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_hu_hu.keys"),
     output: include_str!("generated/glibc_hu_hu.values"),
     sequences: &[("Á", "A'"), ("É", "E'"), ("Í", "I'"), ("Ó", "O'"), ("Ö", "O:"), ("Ő", "O\""), ("Ú", "U'"), ("Ü", "U:"), ("Ű", "U\""), ("á", "a'"), ("é", "e'"), ("í", "i'"), ("ó", "o'"), ("ö", "o:"), ("ő", "o\""), ("ú", "u'"), ("ü", "u:"), ("ű", "u\"")],
+    ascii_starts: &[65, 69, 73, 79, 85, 97, 101, 105, 111, 117],
 };
 #[cfg(feature = "ja")]
 pub(super) static JA_JP: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_ja_jp.keys"),
     output: include_str!("generated/glibc_ja_jp.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "ko")]
 pub(super) static KO_KR: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_ko_kr.keys"),
     output: include_str!("generated/glibc_ko_kr.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "lb")]
 pub(super) static LB_LU: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_lb_lu.keys"),
     output: include_str!("generated/glibc_lb_lu.values"),
     sequences: &[("Ä", "AE"), ("Ë", "EE"), ("Ö", "OE"), ("Ü", "UE"), ("ä", "aE"), ("ë", "eE"), ("ö", "oE"), ("ü", "uE")],
+    ascii_starts: &[65, 69, 79, 85, 97, 101, 111, 117],
 };
 #[cfg(feature = "mn")]
 pub(super) static MN_MN: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_mn_mn.keys"),
     output: include_str!("generated/glibc_mn_mn.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(any(feature = "pa", feature = "ur"))]
 pub(super) static PA_PK: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_pa_pk.keys"),
     output: include_str!("generated/glibc_pa_pk.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "scn")]
 pub(super) static SCN_IT: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_scn_it.keys"),
     output: include_str!("generated/glibc_scn_it.values"),
     sequences: &[("ḌḌ", "DDH"), ("Ḍḍ", "Ddh"), ("ḍḍ", "ddh")],
+    ascii_starts: &[],
 };
 #[cfg(feature = "sr")]
 pub(super) static SR_RS: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_sr_rs.keys"),
     output: include_str!("generated/glibc_sr_rs.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "tk")]
 pub(super) static TK_TM: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_tk_tm.keys"),
     output: include_str!("generated/glibc_tk_tm.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "uk")]
 pub(super) static UK_UA: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_uk_ua.keys"),
     output: include_str!("generated/glibc_uk_ua.values"),
     sequences: &[("ЗГ", "ZGH"), ("Зг", "Zgh"), ("зГ", "zGH"), ("зг", "zgh")],
+    ascii_starts: &[],
 };
 #[cfg(feature = "uz")]
 pub(super) static UZ_UZ: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_uz_uz.keys"),
     output: include_str!("generated/glibc_uz_uz.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "uz")]
 pub(super) static UZ_UZ_CYRILLIC: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_uz_uz_cyrillic.keys"),
     output: include_str!("generated/glibc_uz_uz_cyrillic.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "vi")]
 pub(super) static VI_VN: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_vi_vn.keys"),
     output: include_str!("generated/glibc_vi_vn.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 #[cfg(feature = "yi")]
 pub(super) static YI_US: RuleTable = RuleTable {
     records: include_bytes!("generated/glibc_yi_us.keys"),
     output: include_str!("generated/glibc_yi_us.values"),
     sequences: &[],
+    ascii_starts: &[],
 };
 
 use super::TransliterationError;

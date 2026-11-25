@@ -21,6 +21,43 @@ fn appends_and_reuses_an_output_buffer() {
     assert_eq!(output.capacity(), capacity);
 }
 
+#[cfg(feature = "all-scripts")]
+#[test]
+fn packed_output_handles_chunk_boundaries_and_long_replacements() {
+    let neutral = Transliterator::default();
+    let text = "1234567ä你好🚀\u{0308}\u{10ffff}abc".repeat(96);
+    let expected = "1234567aNiHao:rocket:?abc".repeat(96);
+    assert_eq!(neutral.transliterate(&text), expected);
+
+    let mut appended = String::from("prefix:");
+    neutral.transliterate_into(&text, &mut appended);
+    assert_eq!(&appended[7..], expected);
+}
+
+#[cfg(feature = "all-scripts")]
+#[test]
+fn mixed_widths_and_unmapped_policy_across_output_boundaries() {
+    let neutral = Transliterator::default();
+    let dropping = neutral.with_unmapped(Unmapped::Drop);
+    for prefix_len in (0..=10).chain([
+        63, 64, 65, 119, 120, 121, 127, 128, 129, 503, 504, 505, 511, 512, 513,
+    ]) {
+        let prefix = "A".repeat(prefix_len);
+        for suffix_len in 0..=8 {
+            let suffix = "z".repeat(suffix_len);
+            let input = format!("{prefix}ß你🚀\u{0308}\u{10ffff}\0{suffix}");
+            let expected = format!("{prefix}ssNi:rocket:?\0{suffix}");
+            let expected_drop = format!("{prefix}ssNi:rocket:\0{suffix}");
+            assert_eq!(neutral.transliterate(&input), expected);
+            assert_eq!(dropping.transliterate(&input), expected_drop);
+
+            let mut output = String::from("existing\0");
+            dropping.transliterate_into(&input, &mut output);
+            assert_eq!(output, format!("existing\0{expected_drop}"));
+        }
+    }
+}
+
 #[test]
 fn handles_invalid_locales_and_unmapped_characters() {
     assert_eq!(
@@ -58,6 +95,11 @@ fn locale_overrides_handle_composed_and_decomposed_german() {
     }
     let converter = TextTransliterate::new();
     assert_eq!(converter.transliterate("Grüße", "de").unwrap(), "Gruesse");
+    let german = Transliterator::new("de-DE").unwrap();
+    assert_eq!(
+        german.transliterate("Das Ma\u{0308}dchen antwortet. x\u{0308} a\u{0308} Straße"),
+        "Das Maedchen antwortet. x ae Strasse"
+    );
 }
 
 #[cfg(not(feature = "de"))]

@@ -6,6 +6,7 @@ static ARABIC: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_arabic.keys"),
     output: include_str!("generated/script_arabic.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-arabic"))]
 static ARABIC: Option<RuleTable> = None;
@@ -15,6 +16,7 @@ static ARMENIAN: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_armenian.keys"),
     output: include_str!("generated/script_armenian.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-armenian"))]
 static ARMENIAN: Option<RuleTable> = None;
@@ -24,6 +26,7 @@ static CYRILLIC: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_cyrillic.keys"),
     output: include_str!("generated/script_cyrillic.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-cyrillic"))]
 static CYRILLIC: Option<RuleTable> = None;
@@ -33,6 +36,7 @@ static ETHIOPIC: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_ethiopic.keys"),
     output: include_str!("generated/script_ethiopic.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-ethiopic"))]
 static ETHIOPIC: Option<RuleTable> = None;
@@ -42,6 +46,7 @@ static GEORGIAN: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_georgian.keys"),
     output: include_str!("generated/script_georgian.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-georgian"))]
 static GEORGIAN: Option<RuleTable> = None;
@@ -51,6 +56,7 @@ static GREEK: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_greek.keys"),
     output: include_str!("generated/script_greek.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-greek"))]
 static GREEK: Option<RuleTable> = None;
@@ -60,6 +66,7 @@ static HAN: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_han.keys"),
     output: include_str!("generated/script_han.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-han"))]
 static HAN: Option<RuleTable> = None;
@@ -69,6 +76,7 @@ static HANGUL: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_hangul.keys"),
     output: include_str!("generated/script_hangul.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-hangul"))]
 static HANGUL: Option<RuleTable> = None;
@@ -78,6 +86,7 @@ static HEBREW: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_hebrew.keys"),
     output: include_str!("generated/script_hebrew.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-hebrew"))]
 static HEBREW: Option<RuleTable> = None;
@@ -87,6 +96,7 @@ static INDIC: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_indic.keys"),
     output: include_str!("generated/script_indic.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-indic"))]
 static INDIC: Option<RuleTable> = None;
@@ -96,6 +106,7 @@ static KANA: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_kana.keys"),
     output: include_str!("generated/script_kana.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-kana"))]
 static KANA: Option<RuleTable> = None;
@@ -105,6 +116,7 @@ static LATIN: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_latin.keys"),
     output: include_str!("generated/script_latin.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-latin"))]
 static LATIN: Option<RuleTable> = None;
@@ -114,6 +126,7 @@ static OTHER: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_other.keys"),
     output: include_str!("generated/script_other.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-other"))]
 static OTHER: Option<RuleTable> = None;
@@ -123,6 +136,7 @@ static SOUTHEAST_ASIAN: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_southeast_asian.keys"),
     output: include_str!("generated/script_southeast_asian.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-southeast-asian"))]
 static SOUTHEAST_ASIAN: Option<RuleTable> = None;
@@ -132,6 +146,7 @@ static SYMBOLS: Option<RuleTable> = Some(RuleTable {
     records: include_bytes!("generated/script_symbols.keys"),
     output: include_str!("generated/script_symbols.values"),
     sequences: &[],
+    ascii_starts: &[],
 });
 #[cfg(not(feature = "script-symbols"))]
 static SYMBOLS: Option<RuleTable> = None;
